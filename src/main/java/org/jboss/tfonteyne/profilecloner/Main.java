@@ -4,11 +4,14 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Stack;
 import org.jboss.as.cli.CommandContext;
 import org.jboss.as.cli.CommandContextFactory;
 import org.jboss.as.cli.CommandLineException;
 import org.jboss.as.controller.client.ModelControllerClient;
+import org.jboss.dmr.ModelNode;
 
 /**
  *
@@ -18,17 +21,35 @@ public class Main
 {
     private final static String VERSION = "2014-08-15 beta";
 
-    private static String controller = "localhost";
-    private static int port = 9999;
-    private static String user;
-    private static String pass;
+    private String controller = "localhost";
+    private int port = 9999;
+    private String user;
+    private String pass;
 
-    private static String filename;
+    private String filename;
 
-    private static String source;
-    private static String destination;
+    private class Element
+    {
+        String name;
+        String source;
+        String destination;
+
+        public Element(String name, String source, String destination)
+        {
+            this.name = name;
+            this.source = source;
+            this.destination = destination;
+        }
+
+    }
+    private final List<Element> elements = new LinkedList<>();
 
     public static void main(String[] args)
+    {
+        Main m = new Main(args);
+    }
+
+    public Main(String[] args)
     {
         if (!readOptions(args))
         {
@@ -38,48 +59,29 @@ public class Main
 
         try
         {
-            CommandContext ctx;
-            if (user != null)
-            {
-                ctx = CommandContextFactory.getInstance().newCommandContext(controller, port, user, pass.toCharArray());
-                ctx.connectController();
-            }
-            else
-            {
-                // local auth
-                ctx = CommandContextFactory.getInstance().newCommandContext();
-                ctx.connectController(controller, port);
-            }
-
-
-            ModelControllerClient client = ctx.getModelControllerClient();
+            CommandContext ctx = getContext();
             if (ctx.isDomainMode())
             {
-                ProfileCloner cloner = new ProfileCloner(client, source, destination);
-                List<String> commands = cloner.copy();
+                ModelControllerClient client = ctx.getModelControllerClient();
+                ;
+                Cloner cloner;
+                List<String> commands = new LinkedList<>();
+                for (Element element : elements)
+                {
+                    switch (element.name)
+                    {
+                        case "profile":
+                            cloner = new ProfileCloner(client, element.destination);
+                            break;
+                        default:
+                            cloner = new Cloner(client, element.destination);
+                            break;
+                    }
+                    ModelNode root = cloner.getRoot(element.name, element.source);
+                    commands.addAll(cloner.copy(element.name,root));
+                }
 
-                if (filename == null)
-                {
-                    for (String c : commands)
-                    {
-                        System.out.println(c);
-                    }
-                }
-                else
-                {
-                    try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename));)
-                    {
-                        for (String c : commands)
-                        {
-                            writer.write(c);
-                            writer.newLine();
-                        }
-                    }
-                    catch (IOException e)
-                    {
-                        System.out.println(e.toString());
-                    }
-                }
+                produceOutput(commands);
             }
             else
             {
@@ -97,10 +99,53 @@ public class Main
         }
     }
 
-    private static boolean readOptions(String[] args)
+    private void produceOutput(List<String> commands)
+    {
+        if (filename == null)
+        {
+            for (String c : commands)
+            {
+                System.out.println(c);
+            }
+        }
+        else
+        {
+            try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename));)
+            {
+                for (String c : commands)
+                {
+                    writer.write(c);
+                    writer.newLine();
+                }
+            }
+            catch (IOException e)
+            {
+                System.out.println(e.toString());
+            }
+        }
+    }
+
+    private CommandContext getContext() throws CommandLineException
+    {
+        CommandContext ctx;
+        if (user != null)
+        {
+            ctx = CommandContextFactory.getInstance().newCommandContext(controller, port, user, pass.toCharArray());
+            ctx.connectController();
+        }
+        else
+        {
+            // local auth
+            ctx = CommandContextFactory.getInstance().newCommandContext();
+            ctx.connectController(controller, port);
+        }
+        return ctx;
+    }
+
+    private boolean readOptions(String[] args)
     {
         int i = 0;
-        while (i < args.length -2 && args[i] != null)
+        while (i < args.length && args[i] != null && args[i].startsWith("-"))
         {
             if (args[i].startsWith("--controller="))
             {
@@ -144,14 +189,30 @@ public class Main
             }
             else
             {
-                return false;
+               return false;
             }
         }
 
+         // first non-option seen (or else the comand line was garbled), now we expect sets of 3 with a shortcut of 2 for a profile
         try
         {
-            source = args[i++];
-            destination = args[i++];
+            while (i < args.length && args[i] != null)
+            {
+                // if there are only two options at the end, we presume the user wanted to clone a profile
+                if (args.length - i == 2)
+                {
+                    String source = args[i++];
+                    String dest = args[i++];
+                    elements.add(new Element("profile",source,dest));
+                }
+                else
+                {
+                    String element = args[i++];
+                    String source = args[i++];
+                    String dest = args[i++];
+                    elements.add(new Element(element,source,dest));
+                }
+            }
         }
         catch (IndexOutOfBoundsException e)
         {
@@ -168,10 +229,14 @@ public class Main
 
     private static void usage()
     {
-        System.out.println("JBoss AS 7 / EAP  Profile Cloner - by Tom Fonteyne - version:" + VERSION);
+        System.out.println("JBoss AS 7 / EAP  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
         System.out.println("Usage:");
         System.out.println(
-            " java -jar profilecloner.jar --controller=<host> --username=<user> --password=<password --port=<number>  --file=<name> <fromprofile> <toprofile>"
+            " java -jar profilecloner.jar --controller=<host> --username=<user> --password=<password --port=<number>  --file=<name> rootelement from to rootelement from to ...."
+            + "  where \"rootelement from to\" is for example:\n"
+            + "      socket-binding-group <from-group> <to-group> profile <fromprofile> <toprofile>  ...."
+            + "each set will generate a batch/run-batch. It is recommended to clone the profile last"
+            + "The names from/to can be equal if you want to execute the script on a different domain."
             +    "\n"
             +    "Defaults:\n"
             +    "  controller: localhost\n"

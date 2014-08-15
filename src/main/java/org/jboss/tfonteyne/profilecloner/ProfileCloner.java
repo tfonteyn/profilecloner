@@ -5,74 +5,44 @@ import java.util.LinkedList;
 import java.util.List;
 import org.jboss.as.cli.CommandLineException;
 import org.jboss.as.controller.client.ModelControllerClient;
-import org.jboss.as.controller.client.helpers.ClientConstants;
 import org.jboss.dmr.ModelNode;
-import org.jboss.dmr.ModelType;
 
 /**
+ * A full profile has a number of exceptions in its tree which need to be handled
  *
  * @author Tom Fonteyne
  */
-public class ProfileCloner
+public class ProfileCloner extends Cloner
 {
-    private final ModelControllerClient client;
-    private final String profileName;
-    private final String newProfileName;
-    private final AddressStack addresses;
-
     /**
      *
      * @param client
-     * @param profileName
      * @param newProfileName
      */
-    public ProfileCloner(ModelControllerClient client, String profileName, String newProfileName)
+    public ProfileCloner(ModelControllerClient client, String newProfileName)
     {
-        this.client = client;
-        this.profileName = profileName;
-        this.newProfileName = newProfileName;
-
-        addresses = new AddressStack(newProfileName);
-    }
-
-    /**
-     * Connects to the controller and gets the complete original profile with recursive=true
-     *
-     */
-    private ModelNode getProfile(String profile, boolean recursive)
-        throws IOException, CommandLineException
-    {
-        ModelNode node = new ModelNode();
-        node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
-        node.get(ClientConstants.OP_ADDR).add("profile", profile);
-        node.get("recursive").set(recursive);
-        node.get("include-defaults").set(false);
-
-        ModelNode result = client.execute(node);
-        if ("failed".equals(result.get(ClientConstants.OUTCOME).asString()))
-        {
-            throw new java.lang.RuntimeException(result.asString());
-        }
-        return result.get(ClientConstants.RESULT);
+        super(client,newProfileName);
     }
 
     /**
      * generate the CLI script
      *
+     * @param address: ignored, but should be set to "profile" for compatibility with future changes
+     * @param root
      * @return
      * @throws java.io.IOException
      * @throws org.jboss.as.cli.CommandLineException
      */
-    public List<String> copy()
+    @Override
+    public List<String> copy(String address, ModelNode root)
         throws IOException, CommandLineException
     {
-        List<String> commands = new LinkedList<String>();
+        List<String> commands = new LinkedList<>();
 
         commands.add("batch");
-        commands.add("/profile=" + newProfileName + ":add()");
+        commands.add("/profile=" + toName + ":add()");
 
-        ModelNode profile = getProfile(profileName, true);
-        List<ModelNode> subsystems = profile.get("subsystem").asList();
+        List<ModelNode> subsystems = root.get("subsystem").asList();
         for (ModelNode node : subsystems)
         {
             // for debugging single subsystems
@@ -94,6 +64,8 @@ public class ProfileCloner
      * @param root
      * @return
      */
+
+    @Override
     public List<String> getChildResource(String address, ModelNode root)
     {
         List<String> commands = new LinkedList<String>();
@@ -163,233 +135,5 @@ public class ProfileCloner
         commands.add(0,removeComma(cmd).append(")").toString());
         addresses.pop();
         return commands;
-    }
-
-    /**
-     * The bulk of the work is done in here - it will recursively call getChildResource
-     *
-     * There are potentially to many checks on undefined, but heck.. let's be safe
-     *
-     * @param root
-     * @param commands
-     * @return
-     */
-    private StringBuilder handleProperty(ModelNode root, List<String> commands)
-    {
-        // the attributes for the add() command
-        StringBuilder attributes= new StringBuilder();
-
-        List<ModelNode> children = root.asList();
-        for (ModelNode child : children)
-        {
-            // theoretically we can only have properties at this level
-            if (isProperty(child))
-            {
-                String valueName = child.asProperty().getName();
-                ModelNode value = child.asProperty().getValue();
-
-                if (isUndefined(value))
-                {
-                    continue;
-                }
-
-                if (isList(value))
-                {
-                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
-                }
-                else if (isPrimitive(value))
-                {
-                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
-                }
-                else if (isProperty(value) || isObject(value))
-                {
-                    boolean objectStarted = false;
-
-                    for (ModelNode node : value.asList())
-                    {
-                        if (isUndefined(value))
-                        {
-                            continue;
-                        }
-
-                        String name = node.asProperty().getName();
-                        ModelNode nodeValue = node.asProperty().getValue();
-
-                        if (isUndefined(nodeValue))
-                        {
-                            continue;
-                        }
-
-                        if (isPrimitive(nodeValue))
-                        {
-                            if (isObject(value))
-                            {
-                                if (!objectStarted)
-                                {
-                                    attributes.append(valueName).append("={");
-                                    objectStarted = true;
-                                }
-                                attributes.append("\"").append(name).append("\"").append(" => ").append(getNode(nodeValue)).append(",");
-                            }
-                            else
-                            {
-                                attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
-                            }
-                        }
-                        else if (isList(nodeValue))
-                        {
-                            attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
-                        }
-                        else if (isProperty(nodeValue) || isObject(nodeValue))
-                        {
-                            // and go a level deeper
-                            commands.addAll(getChildResource(valueName, node));
-                        }
-                        else
-                        {
-                            throw new IllegalArgumentException("Unexpected node type" + value.getType());
-                        }
-                    }
-                    if (objectStarted)
-                    {
-                        attributes = removeComma(attributes).append("},");
-                    }
-                }
-                else
-                {
-                    throw new IllegalArgumentException("Unexpected node type" + value.getType());
-                }
-            }
-            else
-            {
-               throw new IllegalArgumentException("Expected property, got " + child.getType());
-            }
-        }
-        return attributes;
-    }
-
-
-    /**
-     * generates the value for a list:  ["val1","val2",...]
-     *
-     * @param nodeList
-     * @return
-     */
-    public String getList(ModelNode nodeList)
-    {
-        StringBuilder cmd = new StringBuilder("[");
-        for (ModelNode node : nodeList.asList())
-        {
-            if (!isUndefined(node))
-            {
-                cmd.append(getNode(node)).append(",");
-            }
-        }
-        return removeComma(cmd).append("]").toString();
-    }
-
-    /**
-     * generates the value for an object:  { "name1" => "val1", "name2 => "val2", ...}
-     *
-     * @param nodeObject
-     * @return
-     */
-    public String getObject(ModelNode nodeObject)
-    {
-        StringBuilder cmd = new StringBuilder("{");
-        for (String name : nodeObject.keys())
-        {
-            ModelNode node = nodeObject.get(name);
-            if (!isUndefined(node))
-            {
-                cmd.append(name).append("=").append(getNode(node)).append(",");
-            }
-        }
-        return removeComma(cmd).append("}").toString();
-    }
-
-    /**
-     * used recursively for the supported types
-     *
-     * @param node
-     * @return
-     */
-    private String getNode(ModelNode node)
-    {
-        if (isUndefined(node))
-        {
-            throw new IllegalArgumentException("ERROR: doNode received UNDEFINED. this indicates a bug!");
-        }
-        else if (isPrimitive(node))
-        {
-            return escape(node);
-        }
-        else if (isObject(node))
-        {
-            return getObject(node);
-        }
-        else if (isList(node))
-        {
-            return getList(node);
-        }
-        else
-        {
-            throw new IllegalArgumentException("Unknown type: " + node.getType());
-        }
-    }
-
-
-
-
-    public static boolean isProperty(ModelNode node)
-    {
-        return node.getType() == ModelType.PROPERTY;
-    }
-
-    public static boolean isObject(ModelNode node)
-    {
-        return node.getType() == ModelType.OBJECT;
-    }
-
-    public static boolean isList(ModelNode node)
-    {
-        return node.getType() == ModelType.LIST;
-    }
-
-    public static boolean isUndefined(ModelNode node)
-    {
-        return node.getType() == ModelType.UNDEFINED;
-    }
-
-    public static boolean isPrimitive(ModelNode node)
-    {
-        ModelType type = node.getType();
-        return type == ModelType.BIG_DECIMAL
-            || type == ModelType.BIG_INTEGER
-            || type == ModelType.BOOLEAN
-            || type == ModelType.BYTES
-            || type == ModelType.DOUBLE
-            || type == ModelType.EXPRESSION
-            || type == ModelType.LONG
-            || type == ModelType.INT
-            || type == ModelType.STRING
-            || type == ModelType.TYPE
-            ;
-    }
-
-    //TODO: any more character needed ?
-    private String escape(ModelNode value)
-    {
-        return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
-    }
-
-    // for ease of use all loops add commas so cut it off when done
-    private StringBuilder removeComma(StringBuilder cmd)
-    {
-        if (cmd.charAt(cmd.length()-1) == ',')
-        {
-            cmd.deleteCharAt(cmd.length()-1);
-        }
-        return cmd;
     }
 }
