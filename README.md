@@ -4,7 +4,7 @@ profilecloner
 JBoss AS 7 / EAP  Profile (and more) Cloner - by Tom Fonteyne
 
 Usage:
- java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar  org.jboss.tfonteyne.profilecloner.Mainjava --controller=host
+ java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar org.jboss.tfonteyne.profilecloner.Main --controller=host
         --username=user --password=password --port=number  --file=name rootelement from to rootelement from to ....  
 
  Where "rootelement from to" is for example:
