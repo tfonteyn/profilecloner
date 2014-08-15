@@ -19,5 +19,5 @@ Defaults:
   file      : to the console
 
  Secure connections need:
-    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ...
+    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password  ...
 
