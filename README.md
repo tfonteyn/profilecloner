@@ -15,8 +15,11 @@ Usage:
 
 Defaults:
   controller: localhost
+
   port      : 9999
+
   file      : to the console
+
 
  Secure connections need:
     java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password  ...
