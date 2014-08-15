@@ -15,7 +15,9 @@ Usage:
 
 Defaults:
   controller: localhost
+
   port      : 9999
+
   file      : to the console
 
  Secure connections need:
