@@ -15,21 +15,32 @@ import org.jboss.dmr.ModelType;
  */
 public class ProfileCloner
 {
-    private final ModelControllerClient executor;
+    private final ModelControllerClient client;
     private final String profileName;
     private final String newProfileName;
     private final AddressStack addresses;
 
-    public ProfileCloner(ModelControllerClient executor, String profileName, String newProfileName)
+    /**
+     *
+     * @param client
+     * @param profileName
+     * @param newProfileName
+     */
+    public ProfileCloner(ModelControllerClient client, String profileName, String newProfileName)
     {
-        this.executor = executor;
+        this.client = client;
         this.profileName = profileName;
         this.newProfileName = newProfileName;
 
         addresses = new AddressStack(newProfileName);
     }
 
-    private ModelNode getProfile(String profile, boolean recursive) throws IOException, CommandLineException
+    /**
+     * Connects to the controller and gets the complete original profile with recursive=true
+     *
+     */
+    private ModelNode getProfile(String profile, boolean recursive)
+        throws IOException, CommandLineException
     {
         ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
@@ -37,7 +48,7 @@ public class ProfileCloner
         node.get("recursive").set(recursive);
         node.get("include-defaults").set(false);
 
-        ModelNode result = executor.execute(node);
+        ModelNode result = client.execute(node);
         if ("failed".equals(result.get(ClientConstants.OUTCOME).asString()))
         {
             throw new java.lang.RuntimeException(result.asString());
@@ -45,6 +56,13 @@ public class ProfileCloner
         return result.get(ClientConstants.RESULT);
     }
 
+    /**
+     * generate the CLI script
+     *
+     * @return
+     * @throws java.io.IOException
+     * @throws org.jboss.as.cli.CommandLineException
+     */
     public List<String> copy()
         throws IOException, CommandLineException
     {
@@ -57,7 +75,7 @@ public class ProfileCloner
         List<ModelNode> subsystems = profile.get("subsystem").asList();
         for (ModelNode node : subsystems)
         {
-            // for debugging
+            // for debugging single subsystems
             //if (node.asProperty().getName().equals("mail"))
                 commands.addAll(getChildResource("subsystem", node));
         }
@@ -66,6 +84,16 @@ public class ProfileCloner
         return commands;
     }
 
+    /**
+     * Used recursively to drill down the tree of the profile
+     * Each entry generated a list of CLI commands
+     *
+     * Note the special handling of certain nodes due to inconsistencies
+     *
+     * @param address
+     * @param root
+     * @return
+     */
     public List<String> getChildResource(String address, ModelNode root)
     {
         List<String> commands = new LinkedList<String>();
@@ -137,14 +165,25 @@ public class ProfileCloner
         return commands;
     }
 
-    private StringBuilder handleProperty(ModelNode root, List<String> commands) throws IllegalArgumentException
+    /**
+     * The bulk of the work is done in here - it will recursively call getChildResource
+     *
+     * There are potentially to many checks on undefined, but heck.. let's be safe
+     *
+     * @param root
+     * @param commands
+     * @return
+     */
+    private StringBuilder handleProperty(ModelNode root, List<String> commands)
     {
+        // the attributes for the add() command
         StringBuilder attributes= new StringBuilder();
 
         List<ModelNode> children = root.asList();
         for (ModelNode child : children)
         {
-            if (child.getType() == ModelType.PROPERTY)
+            // theoretically we can only have properties at this level
+            if (isProperty(child))
             {
                 String valueName = child.asProperty().getName();
                 ModelNode value = child.asProperty().getValue();
@@ -153,7 +192,8 @@ public class ProfileCloner
                 {
                     continue;
                 }
-                else if (isList(value))
+
+                if (isList(value))
                 {
                     attributes.append(valueName).append("=").append(getNode(value)).append(",");
                 }
@@ -179,7 +219,8 @@ public class ProfileCloner
                         {
                             continue;
                         }
-                        else if (isPrimitive(nodeValue))
+
+                        if (isPrimitive(nodeValue))
                         {
                             if (isObject(value))
                             {
@@ -201,11 +242,12 @@ public class ProfileCloner
                         }
                         else if (isProperty(nodeValue) || isObject(nodeValue))
                         {
+                            // and go a level deeper
                             commands.addAll(getChildResource(valueName, node));
                         }
                         else
                         {
-                            System.out.println("node type" + value.getType());
+                            throw new IllegalArgumentException("Unexpected node type" + value.getType());
                         }
                     }
                     if (objectStarted)
@@ -215,15 +257,24 @@ public class ProfileCloner
                 }
                 else
                 {
-                    System.out.println("node type" + value.getType());
+                    throw new IllegalArgumentException("Unexpected node type" + value.getType());
                 }
+            }
+            else
+            {
+               throw new IllegalArgumentException("Expected property, got " + child.getType());
             }
         }
         return attributes;
     }
 
 
-
+    /**
+     * generates the value for a list:  ["val1","val2",...]
+     *
+     * @param nodeList
+     * @return
+     */
     public String getList(ModelNode nodeList)
     {
         StringBuilder cmd = new StringBuilder("[");
@@ -237,6 +288,12 @@ public class ProfileCloner
         return removeComma(cmd).append("]").toString();
     }
 
+    /**
+     * generates the value for an object:  { "name1" => "val1", "name2 => "val2", ...}
+     *
+     * @param nodeObject
+     * @return
+     */
     public String getObject(ModelNode nodeObject)
     {
         StringBuilder cmd = new StringBuilder("{");
@@ -251,7 +308,13 @@ public class ProfileCloner
         return removeComma(cmd).append("}").toString();
     }
 
-    private String getNode(ModelNode node) throws RuntimeException
+    /**
+     * used recursively for the supported types
+     *
+     * @param node
+     * @return
+     */
+    private String getNode(ModelNode node)
     {
         if (isUndefined(node))
         {
@@ -271,7 +334,7 @@ public class ProfileCloner
         }
         else
         {
-            throw new RuntimeException("Unknown type: " + node.getType());
+            throw new IllegalArgumentException("Unknown type: " + node.getType());
         }
     }
 
@@ -313,11 +376,14 @@ public class ProfileCloner
             || type == ModelType.TYPE
             ;
     }
+
+    //TODO: any more character needed ?
     private String escape(ModelNode value)
     {
         return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
     }
 
+    // for ease of use all loops add commas so cut it off when done
     private StringBuilder removeComma(StringBuilder cmd)
     {
         if (cmd.charAt(cmd.length()-1) == ',')

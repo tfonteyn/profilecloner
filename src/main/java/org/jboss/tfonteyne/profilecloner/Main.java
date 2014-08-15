@@ -2,9 +2,7 @@ package org.jboss.tfonteyne.profilecloner;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import org.jboss.as.cli.CommandContext;
@@ -18,14 +16,14 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main
 {
-    private final static String VERSION = "2014-08-14 beta";
+    private final static String VERSION = "2014-08-15 beta";
 
     private static String controller = "localhost";
     private static int port = 9999;
-    private static String user = "admin";
+    private static String user;
     private static String pass;
 
-    private static String filename = null;
+    private static String filename;
 
     private static String source;
     private static String destination;
@@ -35,13 +33,25 @@ public class Main
         if (!readOptions(args))
         {
             usage();
+            System.exit(1);
         }
 
         try
         {
-            CommandContext ctx = CommandContextFactory.getInstance().newCommandContext(controller, port, user, pass.toCharArray());
+            CommandContext ctx;
+            if (user != null)
+            {
+                ctx = CommandContextFactory.getInstance().newCommandContext(controller, port, user, pass.toCharArray());
+                ctx.connectController();
+            }
+            else
+            {
+                // local auth
+                ctx = CommandContextFactory.getInstance().newCommandContext();
+                ctx.connectController(controller, port);
+            }
 
-            ctx.connectController();
+
             ModelControllerClient client = ctx.getModelControllerClient();
             if (ctx.isDomainMode())
             {
@@ -82,7 +92,7 @@ public class Main
         }
         finally
         {
-            // bug in 6.1.0, we need to force an exit; not needed for any other version
+            // due to a bug in EAP 6.1.0, we need to force an exit; not needed for any other version
             System.exit(0);
         }
     }
@@ -137,8 +147,22 @@ public class Main
                 return false;
             }
         }
-        source = args[i++];
-        destination = args[i++];
+
+        try
+        {
+            source = args[i++];
+            destination = args[i++];
+        }
+        catch (IndexOutOfBoundsException e)
+        {
+            return false;
+        }
+        if ((user!=null && pass==null) | (user==null && pass!=null))
+        {
+            System.out.println("Either specify user and password, or neither for local authentication.\n");
+            return false;
+        }
+
         return true;
     }
 
@@ -152,13 +176,11 @@ public class Main
             +    "Defaults:\n"
             +    "  controller: localhost\n"
             +    "  port      : 9999\n"
-            +    "  user      : admin\n"
             +    "  file      : to the console\n"
 
             + "\n"
             + "\n\n Secure connections need:"
             + "\n    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ..."
         );
-        System.exit(1);
     }
 }
