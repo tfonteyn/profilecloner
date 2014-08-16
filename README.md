@@ -3,16 +3,17 @@ profilecloner
 
 JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne
 
-Usage:
+Usage (all one line):
 ~~~
- java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar org.jboss.tfonteyne.profilecloner.Main --controller=host
-        --username=user --password=password --port=number  --file=name
+ java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
+        org.jboss.tfonteyne.profilecloner.Main
+        --controller=host --port=number --username=user --password=password --file=name
         rootelement from to [rootelement from to] ....  
 ~~~
  Where "rootelement from to" is for example:
 ~~~
-      socket-binding-group from-group to-group
-      profile fromprofile toprofile
+      socket-binding-group full-ha-sockets full-ha-sockets-copy 
+      profile full-ha full-ha-copy
 ~~~
  Each set will generate a batch/run-batch. It is recommended to clone the profile last.
  The names from/to can be equal if you want to execute the script on a different domain controller.
