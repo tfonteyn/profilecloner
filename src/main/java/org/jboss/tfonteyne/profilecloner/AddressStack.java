@@ -31,15 +31,16 @@ import org.jboss.dmr.ModelNode;
  */
 public class AddressStack
 {
-
     private final Stack<Address> adresses = new Stack<>();
 
-    public AddressStack(String profile)
+    public AddressStack(String rootName, String name)
     {
-        this.profile = profile;
+        this.rootName = rootName;
+        this.name = name;
     }
 
-    private final String profile;
+    private final String rootName;
+    private final String name;
 
     public void push(Address address)
     {
@@ -53,7 +54,7 @@ public class AddressStack
 
     public StringBuilder toStringBuilder()
     {
-        StringBuilder adressString = new StringBuilder("/profile=" + profile);
+        StringBuilder adressString = new StringBuilder("/").append(rootName).append("=").append(name);
         for (Address address : adresses)
         {
             adressString.append(address.getPath());
@@ -63,7 +64,7 @@ public class AddressStack
 
     public void toAddress(ModelNode node)
     {
-        node.get(ClientConstants.OP_ADDR).add("profile", profile);
+        node.get(ClientConstants.OP_ADDR).add(rootName, name);
         for (Address address : adresses)
         {
             node.get(ClientConstants.OP_ADDR).add(address.name, address.value);

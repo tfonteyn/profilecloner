@@ -31,7 +31,6 @@ import org.jboss.as.cli.CommandContext;
 import org.jboss.as.cli.CommandContextFactory;
 import org.jboss.as.cli.CommandLineException;
 import org.jboss.as.controller.client.ModelControllerClient;
-import org.jboss.dmr.ModelNode;
 
 /**
  *
@@ -39,8 +38,30 @@ import org.jboss.dmr.ModelNode;
  */
 public class Main
 {
-    private final static String VERSION = "2014-08-15 beta";
+    private final static String VERSION = "2014-08-16 beta";
+	
+    private static void usage()
+    {
+        System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
+        System.out.println("Usage:");
+        System.out.println(
+            " java -jar profilecloner.jar --controller=<host> --username=<user> --password=<password --port=<number>  --file=<name> rootelement from to rootelement from to ...."
+            + "  where \"rootelement from to\" is for example:\n"
+            + "      socket-binding-group <from-group> <to-group> profile <fromprofile> <toprofile>  ...."
+            + "each set will generate a batch/run-batch. It is recommended to clone the profile last"
+            + "The names from/to can be equal if you want to execute the script on a different domain."
+            +    "\n"
+            +    "Defaults:\n"
+            +    "  controller: localhost\n"
+            +    "  port      : 9999\n"
+            +    "  file      : to the console\n"
 
+            + "\n"
+            + "\n\n Secure connections need:"
+            + "\n    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ..."
+        );
+    }
+	
     private String controller = "localhost";
     private int port = 9999;
     private String user;
@@ -90,14 +111,13 @@ public class Main
                     switch (element.name)
                     {
                         case "profile":
-                            cloner = new ProfileCloner(client, element.destination);
+                            cloner = new ProfileCloner(client, element.name, element.source, element.destination);
                             break;
                         default:
-                            cloner = new Cloner(client, element.destination);
+                            cloner = new Cloner(client, element.name, element.source, element.destination);
                             break;
                     }
-                    ModelNode root = cloner.getRoot(element.name, element.source);
-                    commands.addAll(cloner.copy(element.name,root));
+                    commands.addAll(cloner.copy());
                 }
 
                 produceOutput(commands);
@@ -244,27 +264,5 @@ public class Main
         }
 
         return true;
-    }
-
-    private static void usage()
-    {
-        System.out.println("JBoss AS 7 / EAP  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
-        System.out.println("Usage:");
-        System.out.println(
-            " java -jar profilecloner.jar --controller=<host> --username=<user> --password=<password --port=<number>  --file=<name> rootelement from to rootelement from to ...."
-            + "  where \"rootelement from to\" is for example:\n"
-            + "      socket-binding-group <from-group> <to-group> profile <fromprofile> <toprofile>  ...."
-            + "each set will generate a batch/run-batch. It is recommended to clone the profile last"
-            + "The names from/to can be equal if you want to execute the script on a different domain."
-            +    "\n"
-            +    "Defaults:\n"
-            +    "  controller: localhost\n"
-            +    "  port      : 9999\n"
-            +    "  file      : to the console\n"
-
-            + "\n"
-            + "\n\n Secure connections need:"
-            + "\n    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ..."
-        );
     }
 }

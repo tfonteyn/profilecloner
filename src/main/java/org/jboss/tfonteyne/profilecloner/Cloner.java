@@ -37,78 +37,86 @@ import org.jboss.dmr.ModelType;
 public class Cloner
 {
     protected final ModelControllerClient client;
-    protected final String toName;
+	protected final String elementName;
+	protected final ModelNode source;
+    protected final String destinationName;
     protected final AddressStack addresses;
 
-    protected Cloner(ModelControllerClient client, String newGroupName)
+	/**
+	 * 
+	 * @param client
+	 * @param elementName for example "profile" (but see: ProfileCloner), "socket-binding-group" etc...
+	 * @param sourceName
+	 * @param destinationName 
+	 * @throws java.io.IOException 
+	 * @throws org.jboss.as.cli.CommandLineException 
+	 */
+	protected Cloner(ModelControllerClient client, String elementName, String sourceName, String destinationName)
+		throws IOException, CommandLineException
     {
         this.client = client;
-        this.toName = newGroupName;
-
-        addresses = new AddressStack(newGroupName);
+		this.elementName = elementName;
+		this.source = getSource(elementName, sourceName);
+        this.destinationName = destinationName;
+        addresses = new AddressStack(elementName, destinationName);	
     }
 
-    /**
-     *
-     * @param root  for example "profile", "socket-binding-group" etc...
-     * @param name
-     * @return
-     * @throws java.io.IOException
-     * @throws org.jboss.as.cli.CommandLineException
-     */
-    public ModelNode getRoot(String root, String name)
+    private ModelNode getSource(String elementName, String sourceName)
         throws IOException, CommandLineException
     {
         ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
-        node.get(ClientConstants.OP_ADDR).add(root, name);
+        node.get(ClientConstants.OP_ADDR).add(elementName, sourceName);
         node.get("recursive").set(true);
         node.get("include-defaults").set(false);
 
         ModelNode result = client.execute(node);
-        if ("failed".equals(result.get(ClientConstants.OUTCOME).asString()))
+        if ("failed".equals(result.get("outcome").asString()))
         {
             throw new java.lang.RuntimeException(result.asString());
         }
-        return result.get(ClientConstants.RESULT);
+        return result.get("result");
     }
 
-    protected List<String> copy(String address, ModelNode root)
+    protected List<String> copy()
         throws IOException, CommandLineException
     {
         List<String> commands = new LinkedList<>();
         commands.add("batch");
-        commands.addAll(getChildResource(address, root));
+        commands.addAll(getChildResource(elementName, source));
         commands.add("run-batch");
         return commands;
     }
 
-    protected List<String> getChildResource(String address, ModelNode root)
+	/**
+	 * Gets called recursively
+	 * 
+	 * @param elementName
+	 * @param source
+	 * @return 
+	 */	
+    protected List<String> getChildResource(String elementName, ModelNode source)
     {
         List<String> commands = new LinkedList<>();
-        StringBuilder attributes;
 
-        if (isProperty(root))
+        if (isProperty(source))
         {
-            String addressName = root.asProperty().getName();
-            addresses.push(new Address(address, addressName));
-
-            // get the attributes for the top level. All sublevels are done with recursion
-            attributes = handleProperty(root.asProperty().getValue(), commands);
-
-            StringBuilder cmd = addresses.toStringBuilder().append(":add(").append(attributes);
-            commands.add(0,removeComma(cmd).append(")").toString());
+            addresses.push(new Address(elementName, source.asProperty().getName()));
+            commands.add(buildAdd("add", handleProperty(source.asProperty().getValue(), commands)));
             addresses.pop();
-            return commands;
         }
         else
         {
-            attributes = handleProperty(root, commands);
-            StringBuilder cmd = addresses.toStringBuilder().append(":add(").append(attributes);
-            commands.add(0,removeComma(cmd).append(")").toString());
-            return commands;
+			commands.add(buildAdd("add", handleProperty(source, commands)));
         }
-    }
+        return commands;
+	}
+
+	protected String buildAdd(String command, StringBuilder attributes)
+	{
+		StringBuilder cmd = addresses.toStringBuilder().append(":").append(command).append("(").append(attributes);
+		return removeComma(cmd).append(")").toString();
+	}
 
     /**
      * The bulk of the work is done in here - it will recursively call getChildResource
@@ -278,9 +286,6 @@ public class Cloner
         }
     }
 
-
-
-
     protected static boolean isProperty(ModelNode node)
     {
         return node.getType() == ModelType.PROPERTY;
@@ -318,13 +323,13 @@ public class Cloner
     }
 
     //TODO: any more character needed ?
-    protected String escape(ModelNode value)
+    private String escape(ModelNode value)
     {
         return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
     }
 
     // for ease of use all loops add commas so cut it off when done
-    protected StringBuilder removeComma(StringBuilder cmd)
+    private StringBuilder removeComma(StringBuilder cmd)
     {
         if (cmd.charAt(cmd.length()-1) == ',')
         {
