@@ -24,7 +24,5 @@ Defaults:
   port      : 9999
   file      : to the console
 ~~~
- Secure connections need:
-~~~
-    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password  ...
-~~~
+ For secure connections you need to set the trust and keystores as system properties
+
