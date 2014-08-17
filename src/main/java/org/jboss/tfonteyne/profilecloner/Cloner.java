@@ -34,36 +34,34 @@ import org.jboss.dmr.ModelType;
  *
  * @author Tom Fonteyne
  */
-public class Cloner
-{
+public class Cloner {
+
     protected final ModelControllerClient client;
-	protected final String elementName;
-	protected final ModelNode source;
+    protected final String elementName;
+    protected final ModelNode source;
     protected final String destinationName;
     protected final AddressStack addresses;
 
-	/**
-	 * 
-	 * @param client
-	 * @param elementName for example "profile" (but see: ProfileCloner), "socket-binding-group" etc...
-	 * @param sourceName
-	 * @param destinationName 
-	 * @throws java.io.IOException 
-	 * @throws org.jboss.as.cli.CommandLineException 
-	 */
-	protected Cloner(ModelControllerClient client, String elementName, String sourceName, String destinationName)
-		throws IOException, CommandLineException
-    {
+    /**
+     *
+     * @param client
+     * @param elementName for example "profile" (but see: ProfileCloner), "socket-binding-group" etc...
+     * @param sourceName
+     * @param destinationName
+     * @throws java.io.IOException
+     * @throws org.jboss.as.cli.CommandLineException
+     */
+    protected Cloner(ModelControllerClient client, String elementName, String sourceName, String destinationName)
+        throws IOException, CommandLineException {
         this.client = client;
-		this.elementName = elementName;
-		this.source = getSource(elementName, sourceName);
+        this.elementName = elementName;
+        this.source = getSource(elementName, sourceName);
         this.destinationName = destinationName;
-        addresses = new AddressStack(elementName, destinationName);	
+        addresses = new AddressStack(elementName, destinationName);
     }
 
     private ModelNode getSource(String elementName, String sourceName)
-        throws IOException, CommandLineException
-    {
+        throws IOException, CommandLineException {
         ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
         node.get(ClientConstants.OP_ADDR).add(elementName, sourceName);
@@ -71,16 +69,13 @@ public class Cloner
         node.get("include-defaults").set(false);
 
         ModelNode result = client.execute(node);
-        if ("failed".equals(result.get("outcome").asString()))
-        {
+        if ("failed".equals(result.get("outcome").asString())) {
             throw new java.lang.RuntimeException(result.asString());
         }
         return result.get("result");
     }
 
-    protected List<String> copy()
-        throws IOException, CommandLineException
-    {
+    protected List<String> copy() throws IOException, CommandLineException {
         List<String> commands = new LinkedList<>();
         commands.add("batch");
         commands.addAll(getChildResource(elementName, source));
@@ -88,35 +83,30 @@ public class Cloner
         return commands;
     }
 
-	/**
-	 * Gets called recursively
-	 * 
-	 * @param elementName
-	 * @param source
-	 * @return 
-	 */	
-    protected List<String> getChildResource(String elementName, ModelNode source)
-    {
+    /**
+     * Gets called recursively
+     *
+     * @param elementName
+     * @param source
+     * @return
+     */
+    protected List<String> getChildResource(String elementName, ModelNode source) {
         List<String> commands = new LinkedList<>();
 
-        if (isProperty(source))
-        {
+        if (isProperty(source)) {
             addresses.push(new Address(elementName, source.asProperty().getName()));
             commands.add(buildAdd("add", handleProperty(source.asProperty().getValue(), commands)));
             addresses.pop();
-        }
-        else
-        {
-			commands.add(buildAdd("add", handleProperty(source, commands)));
+        } else {
+            commands.add(buildAdd("add", handleProperty(source, commands)));
         }
         return commands;
-	}
+    }
 
-	protected String buildAdd(String command, StringBuilder attributes)
-	{
-		StringBuilder cmd = addresses.toStringBuilder().append(":").append(command).append("(").append(attributes);
-		return removeComma(cmd).append(")").toString();
-	}
+    protected String buildAdd(String command, StringBuilder attributes) {
+        StringBuilder cmd = addresses.toStringBuilder().append(":").append(command).append("(").append(attributes);
+        return removeComma(cmd).append(")").toString();
+    }
 
     /**
      * The bulk of the work is done in here - it will recursively call getChildResource
@@ -125,97 +115,69 @@ public class Cloner
      *
      * @param root
      * @param commands
-     * @return a list of attributes:    name1="val1",name2="val2",...
+     * @return a list of attributes: name1="val1",name2="val2",...
      */
-    protected StringBuilder handleProperty(ModelNode root, List<String> commands)
-    {
+    protected StringBuilder handleProperty(ModelNode root, List<String> commands) {
         // the attributes for the add() command
-        StringBuilder attributes= new StringBuilder();
+        StringBuilder attributes = new StringBuilder();
 
         List<ModelNode> children = root.asList();
-        for (ModelNode child : children)
-        {
+        for (ModelNode child : children) {
             // theoretically we can only have properties at this level
-            if (isProperty(child))
-            {
+            if (isProperty(child)) {
                 String valueName = child.asProperty().getName();
                 ModelNode value = child.asProperty().getValue();
 
-                if (isUndefined(value))
-                {
+                if (isUndefined(value)) {
                     continue;
                 }
 
-                if (isList(value))
-                {
+                if (isList(value)) {
                     attributes.append(valueName).append("=").append(getNode(value)).append(",");
-                }
-                else if (isPrimitive(value))
-                {
+                } else if (isPrimitive(value)) {
                     attributes.append(valueName).append("=").append(getNode(value)).append(",");
-                }
-                else if (isProperty(value) || isObject(value))
-                {
+                } else if (isProperty(value) || isObject(value)) {
                     boolean objectStarted = false;
 
-                    for (ModelNode node : value.asList())
-                    {
-                        if (isUndefined(value))
-                        {
+                    for (ModelNode node : value.asList()) {
+                        if (isUndefined(value)) {
                             continue;
                         }
 
                         String name = node.asProperty().getName();
                         ModelNode nodeValue = node.asProperty().getValue();
 
-                        if (isUndefined(nodeValue))
-                        {
+                        if (isUndefined(nodeValue)) {
                             continue;
                         }
 
-                        if (isPrimitive(nodeValue))
-                        {
-                            if (isObject(value))
-                            {
-                                if (!objectStarted)
-                                {
+                        if (isPrimitive(nodeValue)) {
+                            if (isObject(value)) {
+                                if (!objectStarted) {
                                     attributes.append(valueName).append("={");
                                     objectStarted = true;
                                 }
                                 attributes.append("\"").append(name).append("\"").append(" => ").append(getNode(nodeValue)).append(",");
-                            }
-                            else
-                            {
+                            } else {
                                 attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
                             }
-                        }
-                        else if (isList(nodeValue))
-                        {
+                        } else if (isList(nodeValue)) {
                             attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
-                        }
-                        else if (isProperty(nodeValue) || isObject(nodeValue))
-                        {
+                        } else if (isProperty(nodeValue) || isObject(nodeValue)) {
                             // and go a level deeper
                             commands.addAll(getChildResource(valueName, node));
-                        }
-                        else
-                        {
+                        } else {
                             throw new IllegalArgumentException("Unexpected node type" + value.getType());
                         }
                     }
-                    if (objectStarted)
-                    {
+                    if (objectStarted) {
                         attributes = removeComma(attributes).append("},");
                     }
-                }
-                else
-                {
+                } else {
                     throw new IllegalArgumentException("Unexpected node type" + value.getType());
                 }
-            }
-            else
-            {
-               throw new IllegalArgumentException("Expected property, but got " + child.getType());
+            } else {
+                throw new IllegalArgumentException("Expected property, but got " + child.getType());
             }
         }
         return attributes;
@@ -223,15 +185,12 @@ public class Cloner
 
     /**
      * @param nodes
-     * @return the value for a list:  ["val1","val2",...]
+     * @return the value for a list: ["val1","val2",...]
      */
-    protected String getList(ModelNode nodes)
-    {
+    protected String getList(ModelNode nodes) {
         StringBuilder cmd = new StringBuilder("[");
-        for (ModelNode node : nodes.asList())
-        {
-            if (!isUndefined(node))
-            {
+        for (ModelNode node : nodes.asList()) {
+            if (!isUndefined(node)) {
                 cmd.append(getNode(node)).append(",");
             }
         }
@@ -240,16 +199,13 @@ public class Cloner
 
     /**
      * @param nodes
-     * @return the value for an object:  { "name1" => "val1", "name2 => "val2", ...}
+     * @return the value for an object: { "name1" => "val1", "name2 => "val2", ...}
      */
-    protected String getObject(ModelNode nodes)
-    {
+    protected String getObject(ModelNode nodes) {
         StringBuilder cmd = new StringBuilder("{");
-        for (String name : nodes.keys())
-        {
+        for (String name : nodes.keys()) {
             ModelNode node = nodes.get(name);
-            if (!isUndefined(node))
-            {
+            if (!isUndefined(node)) {
                 cmd.append(name).append("=").append(getNode(node)).append(",");
             }
         }
@@ -262,52 +218,37 @@ public class Cloner
      * @param node
      * @return
      */
-    protected String getNode(ModelNode node)
-    {
-        if (isUndefined(node))
-        {
+    protected String getNode(ModelNode node) {
+        if (isUndefined(node)) {
             throw new IllegalArgumentException("ERROR: doNode received UNDEFINED. this indicates a bug!");
-        }
-        else if (isPrimitive(node))
-        {
+        } else if (isPrimitive(node)) {
             return escape(node);
-        }
-        else if (isObject(node))
-        {
+        } else if (isObject(node)) {
             return getObject(node);
-        }
-        else if (isList(node))
-        {
+        } else if (isList(node)) {
             return getList(node);
-        }
-        else
-        {
+        } else {
             throw new IllegalArgumentException("Unknown type: " + node.getType());
         }
     }
 
-    protected static boolean isProperty(ModelNode node)
-    {
+    protected static boolean isProperty(ModelNode node) {
         return node.getType() == ModelType.PROPERTY;
     }
 
-    protected static boolean isObject(ModelNode node)
-    {
+    protected static boolean isObject(ModelNode node) {
         return node.getType() == ModelType.OBJECT;
     }
 
-    protected static boolean isList(ModelNode node)
-    {
+    protected static boolean isList(ModelNode node) {
         return node.getType() == ModelType.LIST;
     }
 
-    protected static boolean isUndefined(ModelNode node)
-    {
+    protected static boolean isUndefined(ModelNode node) {
         return node.getType() == ModelType.UNDEFINED;
     }
 
-    protected static boolean isPrimitive(ModelNode node)
-    {
+    protected static boolean isPrimitive(ModelNode node) {
         ModelType type = node.getType();
         return type == ModelType.BIG_DECIMAL
             || type == ModelType.BIG_INTEGER
@@ -318,22 +259,18 @@ public class Cloner
             || type == ModelType.LONG
             || type == ModelType.INT
             || type == ModelType.STRING
-            || type == ModelType.TYPE
-            ;
+            || type == ModelType.TYPE;
     }
 
     //TODO: any more character needed ?
-    private String escape(ModelNode value)
-    {
+    private String escape(ModelNode value) {
         return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
     }
 
     // for ease of use all loops add commas so cut it off when done
-    private StringBuilder removeComma(StringBuilder cmd)
-    {
-        if (cmd.charAt(cmd.length()-1) == ',')
-        {
-            cmd.deleteCharAt(cmd.length()-1);
+    private StringBuilder removeComma(StringBuilder cmd) {
+        if (cmd.charAt(cmd.length() - 1) == ',') {
+            cmd.deleteCharAt(cmd.length() - 1);
         }
         return cmd;
     }
