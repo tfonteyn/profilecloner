@@ -23,7 +23,9 @@ package org.jboss.tfonteyne.profilecloner;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.LinkedList;
 import java.util.List;
@@ -145,12 +147,12 @@ public class Main {
                 System.out.println(c);
             }
         } else {
-            try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename));) {
+            try (BufferedWriter writer = Files.newBufferedWriter(Paths.get(filename), Charset.defaultCharset());) {
                 for (String c : commands) {
                     writer.write(c);
                     writer.newLine();
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 System.out.println(e.toString());
             }
         }
