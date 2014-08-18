@@ -95,10 +95,10 @@ public class Cloner {
 
         if (isProperty(source)) {
             addresses.push(new Address(elementName, source.asProperty().getName()));
-            commands.add(buildAdd("add", handleProperty(source.asProperty().getValue(), commands)));
+            commands.add(0, buildAdd("add", handleProperty(source.asProperty().getValue(), commands)));
             addresses.pop();
         } else {
-            commands.add(buildAdd("add", handleProperty(source, commands)));
+            commands.add(0,buildAdd("add", handleProperty(source, commands)));
         }
         return commands;
     }
