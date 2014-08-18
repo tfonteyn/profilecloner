@@ -60,21 +60,23 @@ public class ProfileCloner extends Cloner {
     public List<String> getChildResource(String elementName, ModelNode root) {
         List<String> commands = new LinkedList<>();
         StringBuilder attributes;
-        String addressString = addresses.toStringBuilder().toString();
+        String addressString;
 
         if (!isProperty(root)) {
+            addressString = addresses.toStringBuilder().toString();
             attributes = handleProperty(source, commands);
 
              // the profile comes back with a "name" attribute which is not allowed in "add"
             if ((addressString.equals("/profile=" + destinationName))) {
                 attributes = new StringBuilder(attributes.toString().replaceAll("name=.*,", ""));
             }
-            
+
             commands.add(0, buildAdd("add", attributes));
             return commands;
         } else {
             String addressName = root.asProperty().getName();
             addresses.push(new Address(elementName, addressName));
+            addressString = addresses.toStringBuilder().toString();
             attributes = handleProperty(root.asProperty().getValue(), commands);
 
             // JGroups protocols are set with "add-protocol" instead of the normal "add"
