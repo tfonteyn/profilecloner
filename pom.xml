@@ -30,7 +30,7 @@
         <dependency>
             <groupId>org.jboss.as</groupId>
             <artifactId>jboss-as-cli</artifactId>
-            <version>7.4.0.Final-redhat-SNAPSHOT</version>
+            <version>8.0.0.Alpha1-SNAPSHOT</version>
             <classifier>client</classifier>
         </dependency>
     </dependencies>
