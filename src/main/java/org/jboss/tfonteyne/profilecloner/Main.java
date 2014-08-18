@@ -38,7 +38,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2014-08-16 beta";
+    private final static String VERSION = "2014-08-18";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -73,7 +73,7 @@ public class Main {
             + "   connector={\\\"netty\\\" => undefined}\n"
             + "\n"
             + "The reason is that the Cloner class does not set undefined values which is logical,\n"
-            + "but the hornetq connector must be defined with an \"undefined\" which not logical...\n"
+            + "but the hornetq connector must be defined with an \"undefined\" which is not logical...\n"
         );
     }
 
