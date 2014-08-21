@@ -147,11 +147,7 @@ public class Cloner {
                         String name = node.asProperty().getName();
                         ModelNode nodeValue = node.asProperty().getValue();
 
-                        if (isUndefined(nodeValue)) {
-                            continue;
-                        }
-
-                        if (isPrimitive(nodeValue)) {
+                        if (isUndefined(nodeValue) || isPrimitive(nodeValue)) {
                             if (isObject(value)) {
                                 if (!objectStarted) {
                                     attributes.append(valueName).append("={");
@@ -205,9 +201,7 @@ public class Cloner {
         StringBuilder cmd = new StringBuilder("{");
         for (String name : nodes.keys()) {
             ModelNode node = nodes.get(name);
-            if (!isUndefined(node)) {
-                cmd.append(name).append("=").append(getNode(node)).append(",");
-            }
+            cmd.append(name).append("=").append(getNode(node)).append(",");
         }
         return removeComma(cmd).append("}").toString();
     }
@@ -220,7 +214,7 @@ public class Cloner {
      */
     protected String getNode(ModelNode node) {
         if (isUndefined(node)) {
-            throw new IllegalArgumentException("ERROR: doNode received UNDEFINED. this indicates a bug!");
+            return "undefined";
         } else if (isPrimitive(node)) {
             return escape(node);
         } else if (isObject(node)) {
@@ -262,7 +256,14 @@ public class Cloner {
             || type == ModelType.TYPE;
     }
 
-    //TODO: any more character needed ?
+    /**
+     * escape the value part of a name=value (not of an Address)
+     *
+     * TODO: any more character needed ?
+     *
+     * @param value
+     * @return
+     */
     private String escape(ModelNode value) {
         return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
     }

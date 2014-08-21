@@ -81,28 +81,19 @@ public class ProfileCloner extends Cloner {
 
             // JGroups protocols are set with "add-protocol" instead of the normal "add"
             //TODO: what happens if a protocol has child resources ? none today but...
-            if ((addressString.matches("/profile=.*/subsystem=jgroups/stack=.*/protocol=.*"))) {
+            if ((addressString.matches("/profile=.*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))) {
                 addresses.pop();
                 commands.add(0, buildAdd("add-protocol", attributes));
                 return commands;
             }
 
             // JGroups has protocols as read-only, but I found no way to avoid fetching this.
-            if (addressString.matches("/profile=.*/subsystem=jgroups/stack=.*")
+            if (addressString.matches("/profile=.*/subsystem=\"jgroups\"/stack=.*")
                 && attributes.toString().contains("protocols=[")) {
                 attributes = new StringBuilder(attributes.toString().replaceAll("protocols=\\[.*\\],", ""));
-            } // hornet-q has some undefined attributes that must be there
-            //FIXME: is this test on the URL correct ?
-            else if (addressString.matches("/profile=.*/subsystem=messaging/hornetq-server=.*/connection-factory=.*")) {
-                if (attributes.toString().contains("java:/ConnectionFactory")) {
-                    attributes.append("connector={\"in-vm\" => undefined},");
-                } else if (attributes.toString().contains("java:jboss/exported/jms/RemoteConnectionFactory")) {
-                    attributes.append("connector={\"netty\" => undefined},");
-                }
-            } else if (addressString.matches("/profile=.*/subsystem=messaging/hornetq-server=default/pooled-connection-factory=.*")) {
-                attributes.append("connector={\"in-vm\" => undefined},");
-            } // deprecated but still present -> remove the attribute before adding
-            else if (addressString.matches("/profile=.*/subsystem=security/security-domain=.*/.*=classic")
+            }
+            // deprecated but still present -> remove the attribute before adding
+            else if (addressString.matches("/profile=.*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
                 && (attributes.toString().contains("login-modules=[")
                 || attributes.toString().contains("policy-modules=[")
                 || attributes.toString().contains("provider-modules=[")
