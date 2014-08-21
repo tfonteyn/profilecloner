@@ -4,7 +4,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.jboss.tfonteyne.profilecloner</groupId>
 	<artifactId>profilecloner</artifactId>
-	<version>2014-08-18</version>
+	<version>2014-08-21</version>
 	<packaging>jar</packaging>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

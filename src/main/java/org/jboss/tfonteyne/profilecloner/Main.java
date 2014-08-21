@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2014-08-18";
+    private final static String VERSION = "2014-08-21";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -63,18 +63,6 @@ public class Main {
             + "\n Secure connections need:"
             + "\n    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ..."
             + "\n"
-            + "WARNING:\n"
-            + " hornetq connection factories should be double checked if the right connector is set.\n"
-            + "Correct manually in the output if needed !\n"
-            + "Check the entries:\n"
-            + "    /profile=.*/subsystem=messaging/hornetq-server=.*/connection-factory=.*\n"
-            + "and see/correct the connector attribute:\n"
-            + "   connector={\\\"in-vm\\\" => undefined}\n"
-            + "or\n"
-            + "   connector={\\\"netty\\\" => undefined}\n"
-            + "\n"
-            + "The reason is that the Cloner class does not set undefined values which is logical,\n"
-            + "but the hornetq connector must be defined with an \"undefined\" which is not logical...\n"
         );
     }
 
