@@ -26,19 +26,7 @@ Defaults:
 ~~~
  For secure connections you need to set the trust and keystores as system properties
 
-WARNING: hornetq connection factories should be double checked if the right connector is set.
-Correct manually in the output if needed !
-~~~
-/profile=.*/subsystem=messaging/hornetq-server=.*/connection-factory=.*
-~~~
-Either:
-~~~
-connector={\"in-vm\" => undefined}
-~~~
-or
-~~~
-connector={\"netty\" => undefined}
-~~~
+Notes:
+- exporting server-groups will contain the deployments. Filter these out using standard tools like grep/awk/etc...
+- there was a question to export individual subsystems. Same thing, very easy to filter them with grep
 
-The reason is that the Cloner class does not set undefined values which is logical,
-but the hornetq connector must be defined with an "undefined" value which is not logical...
