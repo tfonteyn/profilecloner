@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2014-08-21";
+    private final static String VERSION = "2014-08-24";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -47,44 +47,65 @@ public class Main {
         System.out.println(
             " java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar\n"
             + "    org.jboss.tfonteyne.profilecloner.Main\n"
-            + "    --controller=<host> --username=<user> --password=<password> --port=<number> --file=<name>\n"
+            + "    --controller=<host> --port=<number> --username=<user> --password=<password> \n"
+            + "    --file=<name> --add-deployments=<true|false>\n"
             + "    rootelement from to [rootelement from to] ....\n"
-            + "  where \"rootelement from to\" is for example:\n"
-            + "      socket-binding-group full-ha-sockets full-ha-sockets-copy\n"
-            + "      profile full-ha full-ha-copy\n"
-            + "Each set will generate a batch/run-batch. It is recommended to clone the profile last\n"
-            + "The names from/to can be equal if you want to execute the script on a different domain controller\n."
             + "\n"
-            + "Defaults:\n"
-            + "  controller: localhost\n"
-            + "  port      : 9999\n"
-            + "  file      : to the console\n"
+            + "Options:\n"
+            + "  --controller=<host> | -c <host>       : Defaults to the setting in jboss-cli.xml if you have one,\n"
+            + "  --port=<port>                           or localhost and 9999 (wildfly:9990)\n"
+            + "  --username=<user> | -u <user>         : When not set, $local authentication is attempted\n"
+            + "  --password=<password> | -p <password>\n"
+            + "  --file=<name> | -f <name>             : The resuling CLI commands will be written to the file; if not set, they are ouput on the console\n"
+            + "  --add-deployments=<true|false> | -ad  : By default cloning a server-group will skip the deployments\n"
+            + "                                          If you first copy the content folder and clone the deployments, you can enable this\n"
+            + "\n"
+            + "Examples for \"rootelement from to\":\n"
+            + "  Domain mode:\n"
+            + "    socket-binding-group full-ha-sockets full-ha-sockets-copy\n"
+            + "    profile full-ha full-ha-copy\n"
+            + "\n"
+            + "  Standalone server:\n"
+            + "    subsystem security security\n"
+            + "    profile\n"
+            + "   The latter being a shortcut to clone all subsystems in individual batches\n"
+            + "\n"
+            + "Each set will generate a batch/run-batch. It is recommended to clone the profile last\n"
+            + "The names from/to can be equal if you want to execute the script on a different controller\n."
             + "\n"
             + "\n Secure connections need:"
-            + "\n    java -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password -jar profilecloner.jar ..."
+            + "\n    -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password"
             + "\n"
         );
     }
 
-    private String controller = "localhost";
-    private int port = 9999;
+    private String controller = null;
+    private int port = 0;
     private String user;
     private String pass;
 
+    private boolean addDeployments = false;
+
     private String filename;
 
+    /**
+     * used to keep a list of the elements to be cloned
+     */
     private class Element {
 
         String name;
         String source;
         String destination;
 
+        public Element(String name) {
+            this.name = name;
+        }
+
         public Element(String name, String source, String destination) {
             this.name = name;
             this.source = source;
             this.destination = destination;
         }
-
     }
     private final List<Element> elements = new LinkedList<>();
 
@@ -93,33 +114,27 @@ public class Main {
     }
 
     public Main(String[] args) {
-        if (!readOptions(args)) {
+        if (!readOptions(args) || elements.isEmpty()) {
             usage();
-            System.exit(1);
+            System.exit(0);
         }
 
         try {
             CommandContext ctx = getContext();
-            if (ctx.isDomainMode()) {
-                ModelControllerClient client = ctx.getModelControllerClient();
-                Cloner cloner;
-                List<String> commands = new LinkedList<>();
-                for (Element element : elements) {
-                    switch (element.name) {
-                        case "profile":
-                            cloner = new ProfileCloner(client, element.name, element.source, element.destination);
-                            break;
-                        default:
-                            cloner = new Cloner(client, element.name, element.source, element.destination);
-                            break;
-                    }
-                    commands.addAll(cloner.copy());
-                }
+            ModelControllerClient client = ctx.getModelControllerClient();
 
-                produceOutput(commands);
-            } else {
-                System.out.println("The server is running in standalone mode");
+            Cloner cloner;
+            List<String> commands = new LinkedList<>();
+            for (Element element : elements) {
+                if ("profile".equals(element.name) && !ctx.isDomainMode()) {
+                    cloner = new StandaloneCloner(client);
+                } else {
+                    cloner = new GenericCloner(client, element.name, element.source, element.destination, addDeployments);
+                }             
+                commands.addAll(cloner.copy());
             }
+            produceOutput(commands);
+
         } catch (CommandLineException | IOException | RuntimeException e) {
             e.printStackTrace();
         } finally {
@@ -146,15 +161,20 @@ public class Main {
     }
 
     private CommandContext getContext() throws CommandLineException {
-        CommandContext ctx;
-        if (user != null) {
-            ctx = CommandContextFactory.getInstance().newCommandContext(controller, port, user, pass.toCharArray());
-            ctx.connectController();
-        } else {
-            // local auth
-            ctx = CommandContextFactory.getInstance().newCommandContext();
-            ctx.connectController(controller, port);
+        CommandContextFactory ctxFactory = CommandContextFactory.getInstance();
+        CommandContext ctx = ctxFactory.newCommandContext();
+
+        if (controller==null) {
+            controller = ctx.getDefaultControllerHost();
         }
+        if (port == 0) {
+            port = ctx.getDefaultControllerPort();
+        }
+
+        if (user != null) {
+            ctx = ctxFactory.newCommandContext(user, pass.toCharArray());
+        }
+        ctx.connectController(controller, port);
         return ctx;
     }
 
@@ -181,6 +201,11 @@ public class Main {
             } else if ("-f".equals(args[i])) {
                 filename = args[++i];
                 i++;
+            } else if (args[i].startsWith("--add-deployments=")) {
+                addDeployments = Boolean.parseBoolean(args[i++].substring("--add-deployments=".length()));
+            } else if ("-ad".equals(args[i])) {
+                addDeployments = true;
+                i++;
             } else if (args[i].startsWith("--port=")) {
                 port = Integer.parseInt(args[i++].substring("--port=".length()));
             } else {
@@ -188,15 +213,25 @@ public class Main {
             }
         }
 
-        // first non-option seen (or else the comand line was garbled), now we expect sets of 3 with a shortcut of 2 for a profile
         try {
-            while (i < args.length && args[i] != null) {
-                // if there are only two options at the end, we presume the user wanted to clone a profile
-                if (args.length - i == 2) {
+           while (i < args.length && args[i] != null) {
+                if (args.length - i == 1) {
+                    if ("profile".equals(args[i])) {
+                        // standalone mode -> copy all subsystems
+                        elements.add(new Element("profile"));
+                        i++;
+                    } else {
+                        // domain mode -> profile with the same destination name
+                        String source = args[i++];
+                        elements.add(new Element("profile", source, source));
+                    }
+                } else if (args.length - i == 2) {
+                    // two options -> profile with a set destination name
                     String source = args[i++];
                     String dest = args[i++];
                     elements.add(new Element("profile", source, dest));
                 } else {
+                    // any other root element with source and destination name set
                     String element = args[i++];
                     String source = args[i++];
                     String dest = args[i++];
