@@ -1,0 +1,336 @@
+/*
+ * JBoss, Home of Professional Open Source.
+ * Copyright 2014, Red Hat, Inc., and individual contributors
+ * as indicated by the @author tags. See the copyright.txt file in the
+ * distribution for a full listing of individual contributors.
+ *
+ * This is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU Lesser General Public License as
+ * published by the Free Software Foundation; either version 2.1 of
+ * the License, or (at your option) any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this software; if not, write to the Free
+ * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+ * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+ */
+package org.jboss.tfonteyne.profilecloner;
+
+import java.io.IOException;
+import java.util.LinkedList;
+import java.util.List;
+import org.jboss.as.cli.CommandLineException;
+import org.jboss.as.controller.client.ModelControllerClient;
+import org.jboss.as.controller.client.helpers.ClientConstants;
+import org.jboss.dmr.ModelNode;
+import org.jboss.dmr.ModelType;
+
+/**
+ * Clones any "/name=value" root whether in standalone or in domain and delivers the CLI statement as a batch
+ *
+ * @author Tom Fonteyne
+ */
+public class GenericCloner implements Cloner {
+
+    protected final ModelControllerClient client;
+    protected final String elementName;
+    protected final String sourceName;
+    protected final String destinationName;
+    protected final AddressStack addresses;
+    protected final boolean addDeployments;
+
+    @Deprecated
+    public GenericCloner(ModelControllerClient client, String elementName, String sourceName, String destinationName)
+        throws IOException, CommandLineException {
+        this(client, elementName, sourceName, destinationName, false);
+    }
+    /**
+     *
+     * @param client
+     * @param elementName for example "profile" "socket-binding-group" etc... for domain mode, or "subsystem" etc... for standalone
+     * @param sourceName
+     * @param destinationName
+     * @param addDeployments
+     * @throws java.io.IOException
+     * @throws org.jboss.as.cli.CommandLineException
+     */
+    public GenericCloner(ModelControllerClient client, String elementName, String sourceName, String destinationName, boolean addDeployments)
+        throws IOException, CommandLineException {
+        this.client = client;
+        this.elementName = elementName;
+        this.sourceName = sourceName;
+        this.destinationName = destinationName;
+        this.addDeployments = addDeployments;
+        addresses = new AddressStack(elementName, destinationName);
+    }
+
+    public List<String> copy() throws IOException, CommandLineException {
+        List<String> commands = new LinkedList<>();
+        commands.add("batch");
+        commands.addAll(getChildResource(elementName, getSource(elementName, sourceName)));
+        commands.add("run-batch");
+        return commands;
+    }
+
+    protected ModelNode getSource(String elementName, String sourceName)
+        throws IOException, CommandLineException {
+        ModelNode node = new ModelNode();
+        node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
+        node.get(ClientConstants.OP_ADDR).add(elementName, sourceName);
+        node.get("recursive").set(true);
+        node.get("include-defaults").set(false);
+
+        ModelNode result = client.execute(node);
+        if ("failed".equals(result.get("outcome").asString())) {
+            throw new java.lang.RuntimeException(result.asString());
+        }
+        return result.get("result");
+    }
+
+    /**
+     * Gets called recursively
+     * Note the special handling of certain nodes due to inconsistencies
+     *
+     * @param elementName
+     * @param source
+     * @return
+     */
+    protected List<String> getChildResource(String elementName, ModelNode source) {
+        List<String> commands = new LinkedList<>();
+        StringBuilder attributes;
+        String addressString;
+
+        if (isProperty(source)) {
+            String addressName = source.asProperty().getName();
+            addresses.push(new Address(elementName, addressName));
+            addressString = addresses.toStringBuilder().toString();
+            attributes = handleProperty(source.asProperty().getValue(), commands);
+
+            // JGroups protocols are set with "add-protocol" instead of the normal "add"
+            //TODO: what happens if a protocol has child resources ? none today but...
+            if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))) {
+                addresses.pop();
+                commands.add(0, buildAdd("add-protocol", attributes));
+                return commands;
+            }
+            // remove deployments if not allowed
+            if (!addDeployments && addressString.matches("/server-group=\".*\"/deployment.*=.*")) {
+                addresses.pop();
+                return commands;
+            }
+
+            // JGroups has protocols as read-only, but I found no way to avoid fetching this.
+            if (addressString.matches(".*/subsystem=\"jgroups\"/stack=.*")
+                && attributes.toString().contains("protocols=[")) {
+                attributes = new StringBuilder(attributes.toString().replaceAll("protocols=\\[.*\\],", ""));
+            }
+            // deprecated but still present -> remove the attribute before adding
+            else if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
+                && (attributes.toString().contains("login-modules=[")
+                || attributes.toString().contains("policy-modules=[")
+                || attributes.toString().contains("provider-modules=[")
+                || attributes.toString().contains("trust-modules=[")
+                || attributes.toString().contains("mapping-modules=["))) {
+                attributes = new StringBuilder(attributes.toString()
+                    .replaceAll("login-modules=\\[.*\\],", "")
+                    .replaceAll("policy-modules=\\[.*\\],", "")
+                    .replaceAll("provider-modules=\\[.*\\],", "")
+                    .replaceAll("trust-modules=\\[.*\\],", "")
+                    .replaceAll("mapping-modules=\\[.*\\],", "")
+                );
+            }
+
+            commands.add(0, buildAdd("add", attributes));
+            addresses.pop();
+        } else {
+            addressString = addresses.toStringBuilder().toString();
+            attributes = handleProperty(source, commands);
+
+            // the profile comes back with a "name" attribute which is not allowed in "add"
+            if ((addressString.equals("/profile=\"" + destinationName + "\""))) {
+                attributes = new StringBuilder(attributes.toString().replaceAll("name=.*,", ""));
+            }
+
+            commands.add(0,buildAdd("add", attributes));
+        }
+        return commands;
+     }
+
+    protected String buildAdd(String command, StringBuilder attributes) {
+        StringBuilder cmd = addresses.toStringBuilder().append(":").append(command).append("(").append(attributes);
+        return removeComma(cmd).append(")").toString();
+    }
+
+    /**
+     * The bulk of the work is done in here - it will recursively call getChildResource
+     *
+     * There are potentially to many checks on undefined, but heck.. lets be safe
+     *
+     * @param root
+     * @param commands
+     * @return a list of attributes: name1="val1",name2="val2",...
+     */
+    protected StringBuilder handleProperty(ModelNode root, List<String> commands) {
+        // the attributes for the add() command
+        StringBuilder attributes = new StringBuilder();
+
+        List<ModelNode> children = root.asList();
+        for (ModelNode child : children) {
+            // theoretically we can only have properties at this level
+            if (isProperty(child)) {
+                String valueName = child.asProperty().getName();
+                ModelNode value = child.asProperty().getValue();
+
+                if (isUndefined(value)) {
+                    continue;
+                }
+
+                if (isList(value)) {
+                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
+                } else if (isPrimitive(value)) {
+                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
+                } else if (isProperty(value) || isObject(value)) {
+                    boolean objectStarted = false;
+
+                    for (ModelNode node : value.asList()) {
+                        if (isUndefined(value)) {
+                            continue;
+                        }
+
+                        String name = node.asProperty().getName();
+                        ModelNode nodeValue = node.asProperty().getValue();
+
+                        if (isUndefined(nodeValue) || isPrimitive(nodeValue)) {
+                            if (isObject(value)) {
+                                if (!objectStarted) {
+                                    attributes.append(valueName).append("={");
+                                    objectStarted = true;
+                                }
+                                attributes.append("\"").append(name).append("\"").append(" => ").append(getNode(nodeValue)).append(",");
+                            } else {
+                                attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
+                            }
+                        } else if (isList(nodeValue)) {
+                            attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
+                        } else if (isProperty(nodeValue) || isObject(nodeValue)) {
+                            // and go a level deeper
+                            commands.addAll(getChildResource(valueName, node));
+                        } else {
+                            throw new IllegalArgumentException("Unexpected node type" + value.getType());
+                        }
+                    }
+                    if (objectStarted) {
+                        attributes = removeComma(attributes).append("},");
+                    }
+                } else {
+                    throw new IllegalArgumentException("Unexpected node type" + value.getType());
+                }
+            } else {
+                throw new IllegalArgumentException("Expected property, but got " + child.getType());
+            }
+        }
+        return attributes;
+    }
+
+    /**
+     * @param nodes
+     * @return the value for a list: ["val1","val2",...]
+     */
+    protected String getList(ModelNode nodes) {
+        StringBuilder cmd = new StringBuilder("[");
+        for (ModelNode node : nodes.asList()) {
+            if (!isUndefined(node)) {
+                cmd.append(getNode(node)).append(",");
+            }
+        }
+        return removeComma(cmd).append("]").toString();
+    }
+
+    /**
+     * @param nodes
+     * @return the value for an object: { "name1" => "val1", "name2 => "val2", ...}
+     */
+    protected String getObject(ModelNode nodes) {
+        StringBuilder cmd = new StringBuilder("{");
+        for (String name : nodes.keys()) {
+            ModelNode node = nodes.get(name);
+            cmd.append(name).append("=").append(getNode(node)).append(",");
+        }
+        return removeComma(cmd).append("}").toString();
+    }
+
+    /**
+     * used recursively for the supported types
+     *
+     * @param node
+     * @return
+     */
+    protected String getNode(ModelNode node) {
+        if (isUndefined(node)) {
+            return "undefined";
+        } else if (isPrimitive(node)) {
+            return escape(node);
+        } else if (isObject(node)) {
+            return getObject(node);
+        } else if (isList(node)) {
+            return getList(node);
+        } else {
+            throw new IllegalArgumentException("Unknown type: " + node.getType());
+        }
+    }
+
+    protected static boolean isProperty(ModelNode node) {
+        return node.getType() == ModelType.PROPERTY;
+    }
+
+    protected static boolean isObject(ModelNode node) {
+        return node.getType() == ModelType.OBJECT;
+    }
+
+    protected static boolean isList(ModelNode node) {
+        return node.getType() == ModelType.LIST;
+    }
+
+    protected static boolean isUndefined(ModelNode node) {
+        return node.getType() == ModelType.UNDEFINED;
+    }
+
+    protected static boolean isPrimitive(ModelNode node) {
+        ModelType type = node.getType();
+        return type == ModelType.BIG_DECIMAL
+            || type == ModelType.BIG_INTEGER
+            || type == ModelType.BOOLEAN
+            || type == ModelType.BYTES
+            || type == ModelType.DOUBLE
+            || type == ModelType.EXPRESSION
+            || type == ModelType.LONG
+            || type == ModelType.INT
+            || type == ModelType.STRING
+            || type == ModelType.TYPE;
+    }
+
+    /**
+     * escape the value part of a name=value (not of an Address)
+     *
+     * TODO: any more character needed ?
+     *
+     * @param value
+     * @return
+     */
+    private String escape(ModelNode value) {
+        return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
+    }
+
+    // for ease of use all loops add commas so cut it off when done
+    private StringBuilder removeComma(StringBuilder cmd) {
+        if (cmd.charAt(cmd.length() - 1) == ',') {
+            cmd.deleteCharAt(cmd.length() - 1);
+        }
+        return cmd;
+    }
+}
