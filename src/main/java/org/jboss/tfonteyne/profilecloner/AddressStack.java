@@ -50,7 +50,7 @@ public class AddressStack {
     }
 
     public StringBuilder toStringBuilder() {
-        StringBuilder adressString = new StringBuilder("/").append(rootName).append("=").append(name);
+        StringBuilder adressString = new StringBuilder("/").append(rootName).append("=\"").append(name).append("\"");
         for (Address address : adresses) {
             adressString.append(address.toString());
         }
