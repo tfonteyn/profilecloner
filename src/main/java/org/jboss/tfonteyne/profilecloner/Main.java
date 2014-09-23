@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2014-08-24";
+    private final static String VERSION = "2014-09-23";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -130,7 +130,7 @@ public class Main {
                     cloner = new StandaloneCloner(client);
                 } else {
                     cloner = new GenericCloner(client, element.name, element.source, element.destination, addDeployments);
-                }             
+                }
                 commands.addAll(cloner.copy());
             }
             produceOutput(commands);

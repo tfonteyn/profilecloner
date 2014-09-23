@@ -123,12 +123,19 @@ public class GenericCloner implements Cloner {
                 addresses.pop();
                 return commands;
             }
+            
+            // Messaging has a concept "runtime-queue" which shows up even when asked include-runtime=false
+            if (addressString.matches(".*/subsystem=\"messaging\"/hornetq-server=.*/runtime-queue=.*")) {
+                addresses.pop();
+                return commands;
+            }
 
             // JGroups has protocols as read-only, but I found no way to avoid fetching this.
             if (addressString.matches(".*/subsystem=\"jgroups\"/stack=.*")
                 && attributes.toString().contains("protocols=[")) {
                 attributes = new StringBuilder(attributes.toString().replaceAll("protocols=\\[.*\\],", ""));
             }
+
             // deprecated but still present -> remove the attribute before adding
             else if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
                 && (attributes.toString().contains("login-modules=[")
