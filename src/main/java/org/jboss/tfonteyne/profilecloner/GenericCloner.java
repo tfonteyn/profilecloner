@@ -123,7 +123,7 @@ public class GenericCloner implements Cloner {
                 addresses.pop();
                 return commands;
             }
-            
+
             // Messaging has a concept "runtime-queue" which shows up even when asked include-runtime=false
             if (addressString.matches(".*/subsystem=\"messaging\"/hornetq-server=.*/runtime-queue=.*")) {
                 addresses.pop();
