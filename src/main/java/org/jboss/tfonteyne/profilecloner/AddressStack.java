@@ -33,32 +33,43 @@ public class AddressStack {
 
     private final Stack<Address> adresses = new Stack<>();
 
-    public AddressStack(String rootName, String name) {
-        this.rootName = rootName;
-        this.name = name;
+    public AddressStack(String root, String source) {
+        adresses.push(new Address(root, source));
     }
 
-    private final String rootName;
-    private final String name;
+    public AddressStack(String source) {
+        String[] nvPairs = source.split("/");
+        for (int i=1; i<nvPairs.length; i++) {
+            adresses.push(new Address(nvPairs[i]));
+        }
+    }
 
     public void push(Address address) {
         adresses.push(address);
+    }
+
+    public void push(String nvString) {
+        adresses.push(new Address(nvString));
     }
 
     public void pop() {
         adresses.pop();
     }
 
+    @Override
+    public String toString() {
+        return toStringBuilder().toString();
+    }
+
     public StringBuilder toStringBuilder() {
-        StringBuilder adressString = new StringBuilder("/").append(rootName).append("=\"").append(name).append("\"");
+        StringBuilder adressString = new StringBuilder();
         for (Address address : adresses) {
             adressString.append(address.toString());
         }
         return adressString;
     }
 
-    public void toAddress(ModelNode node) {
-        node.get(ClientConstants.OP_ADDR).add(rootName, name);
+    public void setAddress(ModelNode node) {
         for (Address address : adresses) {
             node.get(ClientConstants.OP_ADDR).add(address.name, address.value);
         }

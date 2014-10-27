@@ -47,6 +47,7 @@ public class StandaloneCloner implements Cloner {
         this.client = client;
     }
 
+    @Override
     public List<String> copy() throws IOException, CommandLineException {
         Cloner cloner;
         List<String> commands = new LinkedList<>();
@@ -54,7 +55,7 @@ public class StandaloneCloner implements Cloner {
         for (ModelNode subsystem : subsystems)
         {
             String name = subsystem.asProperty().getName();
-            cloner = new GenericCloner(client, "subsystem",name,name);
+            cloner = new GenericCloner(client, "/subsystem=" + name, name, false);
             commands.addAll(cloner.copy());
         }
         return commands;

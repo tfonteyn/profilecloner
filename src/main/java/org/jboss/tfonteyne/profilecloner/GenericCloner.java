@@ -37,51 +37,51 @@ import org.jboss.dmr.ModelType;
  */
 public class GenericCloner implements Cloner {
 
-    protected final ModelControllerClient client;
-    protected final String elementName;
-    protected final String sourceName;
-    protected final String destinationName;
-    protected final AddressStack addresses;
-    protected final boolean addDeployments;
+    protected ModelControllerClient client = null;
+    protected String elementName = null;
+    protected String destinationName = null;
 
-    @Deprecated
-    public GenericCloner(ModelControllerClient client, String elementName, String sourceName, String destinationName)
-        throws IOException, CommandLineException {
-        this(client, elementName, sourceName, destinationName, false);
-    }
+    protected AddressStack destinationAddress = null;
+    protected AddressStack sourceAddress = null;
+
+    protected boolean addDeployments;
+
     /**
      *
      * @param client
-     * @param elementName for example "profile" "socket-binding-group" etc... for domain mode, or "subsystem" etc... for standalone
-     * @param sourceName
-     * @param destinationName
+     * @param source a CLI style address, example: "/profile=default" or "/host=master/core-service=management"
+     * @param destinationName the new name of the last part of the source address, example "new-default" or "management" (e.g. use same name)
      * @param addDeployments
-     * @throws java.io.IOException
-     * @throws org.jboss.as.cli.CommandLineException
+     * @throws IOException
+     * @throws CommandLineException
      */
-    public GenericCloner(ModelControllerClient client, String elementName, String sourceName, String destinationName, boolean addDeployments)
+    public GenericCloner(ModelControllerClient client, String source, String destinationName, boolean addDeployments)
         throws IOException, CommandLineException {
         this.client = client;
-        this.elementName = elementName;
-        this.sourceName = sourceName;
         this.destinationName = destinationName;
         this.addDeployments = addDeployments;
-        addresses = new AddressStack(elementName, destinationName);
+
+        int pos = source.lastIndexOf("/");
+        this.elementName = source.substring(pos+1,source.length()-1).split("=")[0];
+
+        sourceAddress = new AddressStack(source);
+        destinationAddress = new AddressStack(source.substring(0, pos) + "/" + elementName + "=" + destinationName);
     }
 
+    @Override
     public List<String> copy() throws IOException, CommandLineException {
         List<String> commands = new LinkedList<>();
         commands.add("batch");
-        commands.addAll(getChildResource(elementName, getSource(elementName, sourceName)));
+        commands.addAll(getChildResource(elementName, getSource(sourceAddress)));
         commands.add("run-batch");
         return commands;
     }
 
-    protected ModelNode getSource(String elementName, String sourceName)
+    protected ModelNode getSource(AddressStack source)
         throws IOException, CommandLineException {
         ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
-        node.get(ClientConstants.OP_ADDR).add(elementName, sourceName);
+        source.setAddress(node);
         node.get("recursive").set(true);
         node.get("include-defaults").set(false);
 
@@ -107,26 +107,26 @@ public class GenericCloner implements Cloner {
 
         if (isProperty(source)) {
             String addressName = source.asProperty().getName();
-            addresses.push(new Address(elementName, addressName));
-            addressString = addresses.toStringBuilder().toString();
+            destinationAddress.push(new Address(elementName, addressName));
+            addressString = destinationAddress.toString();
             attributes = handleProperty(source.asProperty().getValue(), commands);
 
             // JGroups protocols are set with "add-protocol" instead of the normal "add"
             //TODO: what happens if a protocol has child resources ? none today but...
             if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))) {
-                addresses.pop();
+                destinationAddress.pop();
                 commands.add(0, buildAdd("add-protocol", attributes));
                 return commands;
             }
             // remove deployments if not allowed
             if (!addDeployments && addressString.matches("/server-group=\".*\"/deployment.*=.*")) {
-                addresses.pop();
+                destinationAddress.pop();
                 return commands;
             }
 
             // Messaging has a concept "runtime-queue" which shows up even when asked include-runtime=false
             if (addressString.matches(".*/subsystem=\"messaging\"/hornetq-server=.*/runtime-queue=.*")) {
-                addresses.pop();
+                destinationAddress.pop();
                 return commands;
             }
 
@@ -153,9 +153,9 @@ public class GenericCloner implements Cloner {
             }
 
             commands.add(0, buildAdd("add", attributes));
-            addresses.pop();
+            destinationAddress.pop();
         } else {
-            addressString = addresses.toStringBuilder().toString();
+            addressString = destinationAddress.toString();
             attributes = handleProperty(source, commands);
 
             // the profile comes back with a "name" attribute which is not allowed in "add"
@@ -169,7 +169,7 @@ public class GenericCloner implements Cloner {
      }
 
     protected String buildAdd(String command, StringBuilder attributes) {
-        StringBuilder cmd = addresses.toStringBuilder().append(":").append(command).append("(").append(attributes);
+        StringBuilder cmd = destinationAddress.toStringBuilder().append(":").append(command).append("(").append(attributes);
         return removeComma(cmd).append(")").toString();
     }
 

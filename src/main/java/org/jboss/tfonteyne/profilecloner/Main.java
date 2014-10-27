@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2014-09-23";
+    private final static String VERSION = "2014-10-27";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -49,7 +49,7 @@ public class Main {
             + "    org.jboss.tfonteyne.profilecloner.Main\n"
             + "    --controller=<host> --port=<number> --username=<user> --password=<password> \n"
             + "    --file=<name> --add-deployments=<true|false>\n"
-            + "    rootelement from to [rootelement from to] ....\n"
+            + "    /from=value destinationvalue [/from=value destinationvalue] ....\n"
             + "\n"
             + "Options:\n"
             + "  --controller=<host> | -c <host>       : Defaults to the setting in jboss-cli.xml if you have one,\n"
@@ -62,11 +62,12 @@ public class Main {
             + "\n"
             + "Examples for \"rootelement from to\":\n"
             + "  Domain mode:\n"
-            + "    socket-binding-group full-ha-sockets full-ha-sockets-copy\n"
-            + "    profile full-ha full-ha-copy\n"
+            + "    /socket-binding-group=full-ha-sockets full-ha-sockets-copy\n"
+            + "    /profile=full-ha full-ha-copy\n"
+            + "    /profile=full-ha/subsystem=web web\n"
             + "\n"
             + "  Standalone server:\n"
-            + "    subsystem security security\n"
+            + "    /subsystem=security security\n"
             + "    profile\n"
             + "   The latter being a shortcut to clone all subsystems in individual batches\n"
             + "\n"
@@ -93,17 +94,15 @@ public class Main {
      */
     private class Element {
 
-        String name;
         String source;
         String destination;
 
-        public Element(String name) {
-            this.name = name;
+        public Element(String source) {
+            this.source = source;
         }
 
-        public Element(String name, String source, String destination) {
-            this.name = name;
-            this.source = source;
+        public Element(String from, String destination) {
+            this.source = from;
             this.destination = destination;
         }
     }
@@ -126,10 +125,10 @@ public class Main {
             Cloner cloner;
             List<String> commands = new LinkedList<>();
             for (Element element : elements) {
-                if ("profile".equals(element.name) && !ctx.isDomainMode()) {
+                if ("profile".equals(element.source) && !ctx.isDomainMode()) {
                     cloner = new StandaloneCloner(client);
                 } else {
-                    cloner = new GenericCloner(client, element.name, element.source, element.destination, addDeployments);
+                    cloner = new GenericCloner(client, element.source, element.destination, addDeployments);
                 }
                 commands.addAll(cloner.copy());
             }
@@ -223,19 +222,13 @@ public class Main {
                     } else {
                         // domain mode -> profile with the same destination name
                         String source = args[i++];
-                        elements.add(new Element("profile", source, source));
+                        elements.add(new Element("profile", source));
                     }
                 } else if (args.length - i == 2) {
-                    // two options -> profile with a set destination name
+                    // two options -> CLI address as source, simple name as destination
                     String source = args[i++];
-                    String dest = args[i++];
-                    elements.add(new Element("profile", source, dest));
-                } else {
-                    // any other root element with source and destination name set
-                    String element = args[i++];
-                    String source = args[i++];
-                    String dest = args[i++];
-                    elements.add(new Element(element, source, dest));
+                    String destination = args[i++];
+                    elements.add(new Element(source, destination));
                 }
             }
         } catch (IndexOutOfBoundsException e) {
