@@ -60,7 +60,7 @@ public class Main {
             + "  --add-deployments=<true|false> | -ad  : By default cloning a server-group will skip the deployments\n"
             + "                                          If you first copy the content folder and clone the deployments, you can enable this\n"
             + "\n"
-            + "Examples for \"rootelement from to\":\n"
+            + "Examples for \"/from=value destinationvalue\":\n"
             + "  Domain mode:\n"
             + "    /socket-binding-group=full-ha-sockets full-ha-sockets-copy\n"
             + "    /profile=full-ha full-ha-copy\n"

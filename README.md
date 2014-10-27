@@ -1,13 +1,15 @@
 profilecloner
 =============
 ~~~
-JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:2014-08-24
+New syntax for specifying what to clone starting in version 2014-12-27 !
+
+JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:2014-10-27
 Usage:
  java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
     org.jboss.tfonteyne.profilecloner.Main
     --controller=<host> --port=<number> --username=<user> --password=<password>
     --file=<name> --add-deployments=<true|false>
-    rootelement from to [rootelement from to] ....
+    /from=value destinationvalue [/from=value destinationvalue] ....
 
 Options:
   --controller=<host> | -c <host>       : Defaults to the setting in jboss-cli.xml if you have one,
@@ -18,13 +20,14 @@ Options:
   --add-deployments=<true|false> | -ad  : By default cloning a server-group will skip the deployments
                                           If you first copy the content folder and clone the deployments, you can enable this
 
-Examples for "rootelement from to":
+Examples for "/from=value destinationvalue":
   Domain mode:
-    socket-binding-group full-ha-sockets full-ha-sockets-copy
-    profile full-ha full-ha-copy
+    /socket-binding-group=full-ha-sockets full-ha-sockets-copy
+    /profile=full-ha full-ha-copy
+    /profile=full-ha/subsystem=web web
 
   Standalone server:
-    subsystem security security
+    /subsystem=security security
     profile
    The latter being a shortcut to clone all subsystems in individual batches
 
@@ -33,7 +36,4 @@ The names from/to can be equal if you want to execute the script on a different 
 
  Secure connections need:
     -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password
-
-Notes:
-- there was a question to export individual subsystems from a profile -> use grep
 ~~~
