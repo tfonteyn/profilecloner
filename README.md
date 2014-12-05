@@ -1,7 +1,7 @@
 profilecloner
 =============
 ~~~
-New syntax for specifying what to clone starting in version 2014-12-27 !
+New syntax for specifying what to clone starting in version 2014-10-27 !
 
 JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:2014-10-27
 Usage:
