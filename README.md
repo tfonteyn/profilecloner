@@ -1,9 +1,7 @@
 profilecloner
 =============
 ~~~
-New syntax for specifying what to clone starting in version 2014-10-27 !
-
-JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:2014-10-27
+JBoss WildFly / JBoss EAP 6.1+ Profile (and more) Cloner - by Tom Fonteyne - version:2014-10-27
 Usage:
  java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
     org.jboss.tfonteyne.profilecloner.Main
@@ -36,4 +34,10 @@ The names from/to can be equal if you want to execute the script on a different 
 
  Secure connections need:
     -Djavax.net.ssl.trustStore=/path/to/store.jks -Djavax.net.ssl.trustStorePassword=password
+
+Note that EAP 6.0.x is **not** supported.
+The cloner will break on the "module-option" entries inside "login-module" sections.
+Workaround is to remove those manually before cloning.
+The file "jboss-cli-client.jar" does also not exist in those versions, instead take a look at jconsole.sh for the equivalent set of files you will need.
+As EAP 6.0.x is very old now, you really should be upgrading anyhow.
 ~~~
