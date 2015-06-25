@@ -31,11 +31,18 @@ public class Address {
         this.name = name;
         this.value = value;
     }
-    
+
     public Address(String pair) {
         String[] nv = pair.split("=");
-        this.name = nv[0];
-        this.value = nv[1];
+        try
+        {
+            this.name = nv[0];
+            this.value = nv[1];
+        }
+        catch (ArrayIndexOutOfBoundsException oob)
+        {
+            throw new ArrayIndexOutOfBoundsException("Invalid address pair: " + pair);
+        }
     }
 
     String name;
