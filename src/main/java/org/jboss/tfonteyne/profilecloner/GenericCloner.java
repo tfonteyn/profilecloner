@@ -112,8 +112,10 @@ public class GenericCloner implements Cloner {
             attributes = handleProperty(source.asProperty().getValue(), commands);
 
             // JGroups protocols are set with "add-protocol" instead of the normal "add"
-            //TODO: what happens if a protocol has child resources ? none today but...
-            if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))) {
+            if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))
+                // but do not do this for child resources
+                && (!addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*/.*=.*"))
+                ) {
                 destinationAddress.pop();
                 commands.add(0, buildAdd("add-protocol", attributes));
                 return commands;
