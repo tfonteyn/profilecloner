@@ -46,6 +46,13 @@ public class GenericCloner implements Cloner {
 
     protected boolean addDeployments;
 
+    private int managementMajorVersion = 0;
+    private static final String VERSION_MAJOR = "management-major-version";
+    private static final String VERSION_MICRO = "management-micro-version";
+    private static final String VERSION_MINOR = "management-minor-version";
+
+    private static final int WILDFLY9 = 3;
+
     /**
      *
      * @param client
@@ -66,6 +73,8 @@ public class GenericCloner implements Cloner {
 
         sourceAddress = new AddressStack(source);
         destinationAddress = new AddressStack(source.substring(0, pos) + "/" + elementName + "=" + destinationName);
+
+        managementMajorVersion = this.getManagementVersion(client, VERSION_MAJOR);
     }
 
     @Override
@@ -75,6 +84,18 @@ public class GenericCloner implements Cloner {
         commands.addAll(getChildResource(elementName, getSource(sourceAddress)));
         commands.add("run-batch");
         return commands;
+    }
+
+
+    private int getManagementVersion(ModelControllerClient client, String version) throws IOException {
+        ModelNode node = new ModelNode();
+        node.get(ClientConstants.OP).set(ClientConstants.READ_ATTRIBUTE_OPERATION);
+        node.get("name").set(version);
+        ModelNode result = client.execute(node);
+        if ("failed".equals(result.get(ClientConstants.OUTCOME).asString())) {
+            throw new java.lang.RuntimeException(result.asString());
+        }
+        return result.get(ClientConstants.RESULT).asInt();
     }
 
     protected ModelNode getSource(AddressStack source)
@@ -111,15 +132,19 @@ public class GenericCloner implements Cloner {
             addressString = destinationAddress.toString();
             attributes = handleProperty(source.asProperty().getValue(), commands);
 
-            // JGroups protocols are set with "add-protocol" instead of the normal "add"
-            if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))
-                // but do not do this for child resources
-                && (!addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*/.*=.*"))
-                ) {
-                destinationAddress.pop();
-                commands.add(0, buildAdd("add-protocol", attributes));
-                return commands;
+            if (managementMajorVersion < WILDFLY9) {
+                // pre WildFly 9 required special handling of the JGroups protocols which were set
+                // using "add-protocol" instead of the normal "add"
+                if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))
+                    // but do not do this for child resources
+                    && (!addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*/.*=.*"))
+                    ) {
+                    destinationAddress.pop();
+                    commands.add(0, buildAdd("add-protocol", attributes));
+                    return commands;
+                }
             }
+
             // remove deployments if not allowed
             if (!addDeployments && addressString.matches("/server-group=\".*\"/deployment.*=.*")) {
                 destinationAddress.pop();
