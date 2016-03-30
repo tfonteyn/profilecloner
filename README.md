@@ -41,3 +41,19 @@ Workaround is to remove those manually before cloning.
 The file "jboss-cli-client.jar" does also not exist in those versions, instead take a look at jconsole.sh for the equivalent set of files you will need.
 As EAP 6.0.x is very old now, you really should be upgrading anyhow.
 ~~~
+Example for Rest API Version:
+
+Launch the standalone server issuing the following command:
+ java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
+    org.jboss.tfonteyne.profilecloner.Server [port:7779]
+
+  Standalone server:
+
+   http://localhost:7779/profilecloner/cloner/clone?controller=localhost&port=9999&username=admin&password=Pa$$w0rd.01&file=/Users/andreabattaglia/Desktop/profileclonertest.commands&add-deployments=false&from=/subsystem%3Dresource-
+adapters+resource-adapters
+
+   http://localhost:7779/profilecloner/cloner/clone?controller=localhost&port=9999&username=admin&password=Pa$$w0rd.01&file=/Users/andreabattaglia/Desktop/profileclonertest.commands&add-deployments=false&from=/profile
+
+  Domain mode:
+
+   http://localhost:7779/profilecloner/cloner/clone?controller=localhost&port=9999&username=admin&password=Pa$$w0rd.01&file=/Users/andreabattaglia/Desktop/profileclonertest.commands&add-deployments=false&from=/profile%3Dfull-ha+full-ha-copy
