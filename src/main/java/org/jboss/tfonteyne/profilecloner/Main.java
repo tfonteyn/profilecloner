@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2015-08-05";
+    private final static String VERSION = "2016-05-009";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
