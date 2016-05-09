@@ -51,7 +51,11 @@ public class GenericCloner implements Cloner {
     private static final String VERSION_MICRO = "management-micro-version";
     private static final String VERSION_MINOR = "management-minor-version";
 
+    // mostly for reference, used for compatibility exceptions
+    private static final int EAP6 = 1;
+    private static final int WILDFLY8 = 2;
     private static final int WILDFLY9 = 3;
+    private static final int WILDFLY10 = 4; // == EAP 7
 
     /**
      *
@@ -164,7 +168,7 @@ public class GenericCloner implements Cloner {
             }
 
             // deprecated but still present -> remove the attribute before adding
-            else if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
                 && (attributes.toString().contains("login-modules=[")
                 || attributes.toString().contains("policy-modules=[")
                 || attributes.toString().contains("provider-modules=[")
@@ -176,6 +180,22 @@ public class GenericCloner implements Cloner {
                     .replaceAll("provider-modules=\\[.*\\],", "")
                     .replaceAll("trust-modules=\\[.*\\],", "")
                     .replaceAll("mapping-modules=\\[.*\\],", "")
+                );
+            }
+
+            // JASPI has 2 similar issues as "classic"
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"")
+                && (attributes.toString().contains("auth-modules=["))) {
+                attributes = new StringBuilder(attributes.toString()
+                    .replaceAll("auth-modules=\\[.*\\],", "")
+                );
+            }
+
+            // JASPI has 2 similar issues as "classic"
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"/login-module-stack=.*")
+                && (attributes.toString().contains("login-modules=["))) {
+                attributes = new StringBuilder(attributes.toString()
+                    .replaceAll("login-modules=\\[.*\\],", "")
                 );
             }
 
