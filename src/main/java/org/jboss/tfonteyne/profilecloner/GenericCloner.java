@@ -377,7 +377,7 @@ public class GenericCloner implements Cloner {
      * @return
      */
     private String escape(ModelNode value) {
-        return "\"" + value.asString().replaceAll("=", "\\=").replaceAll("\"", "\\") + "\"";
+        return "\"" + value.asString().replace("=", "\\=").replace("\"", "\\") + "\"";
     }
 
     // for ease of use all loops add commas so cut it off when done
