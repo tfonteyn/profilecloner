@@ -86,12 +86,12 @@
 			</pluginRepositories>
 		</profile>
 	</profiles>
-        <dependencies>
-            <dependency>
-                <groupId>org.wildfly</groupId>
-                <artifactId>wildfly-cli</artifactId>
-                <version>8.1.0.Final</version>
-                <classifier>client</classifier>
-            </dependency>
-        </dependencies>
+    <dependencies>
+        <dependency>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-cli</artifactId>
+            <version>8.2.1.Final</version>
+            <classifier>client</classifier>
+        </dependency>
+    </dependencies>
 </project>
