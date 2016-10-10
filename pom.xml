@@ -1,91 +1,91 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-	<modelVersion>4.0.0</modelVersion>
-	<groupId>org.jboss.tfonteyne.profilecloner</groupId>
-	<artifactId>profilecloner</artifactId>
-        <version>2015-08-05</version>
-	<packaging>jar</packaging>
-	<properties>
-		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<maven.compiler.source>1.7</maven.compiler.source>
-		<maven.compiler.target>1.7</maven.compiler.target>
-	</properties>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-jar-plugin</artifactId>
-				<version>2.5</version>
-				<configuration>
-					<archive>
-						<manifest>
-							<mainClass>org.jboss.tfonteyne.profilecloner.Main</mainClass>
-						</manifest>
-					</archive>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <groupId>org.jboss.tfonteyne.profilecloner</groupId>
+    <artifactId>profilecloner</artifactId>
+    <version>2016-10-10</version>
+    <packaging>jar</packaging>
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>1.7</maven.compiler.source>
+        <maven.compiler.target>1.7</maven.compiler.target>
+    </properties>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>2.5</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <mainClass>org.jboss.tfonteyne.profilecloner.Main</mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 
-	<!-- Environment Settings -->
-	<profiles>
-		<profile>
-			<id>public-repos</id>
-			<repositories>
-				<repository>
-					<id>central</id>
-					<name>Maven Central</name>
-					<releases>
-						<enabled>true</enabled>
-						<updatePolicy>always</updatePolicy>
-						<checksumPolicy>warn</checksumPolicy>
-					</releases>
-					<snapshots>
-						<enabled>false</enabled>
-						<updatePolicy>never</updatePolicy>
-						<checksumPolicy>fail</checksumPolicy>
-					</snapshots>
-					<url>http://repo1.maven.org/maven2/</url>
-					<layout>default</layout>
-				</repository>
-				<repository>
-					<id>jboss.org</id>
-					<name>JBoss org</name>
-					<releases>
-						<enabled>true</enabled>
-						<updatePolicy>always</updatePolicy>
-						<checksumPolicy>warn</checksumPolicy>
-					</releases>
-					<snapshots>
-						<enabled>false</enabled>
-						<updatePolicy>never</updatePolicy>
-						<checksumPolicy>fail</checksumPolicy>
-					</snapshots>
-					<url>http://repository.jboss.org/nexus/content/repositories/releases/</url>
-					<layout>default</layout>
-				</repository>
-				<repository>
-					<id>fusesource.com</id>
-					<name>Fuse Source</name>
-					<releases>
-						<enabled>true</enabled>
-						<updatePolicy>always</updatePolicy>
-						<checksumPolicy>warn</checksumPolicy>
-					</releases>
-					<snapshots>
-						<enabled>false</enabled>
-						<updatePolicy>never</updatePolicy>
-						<checksumPolicy>fail</checksumPolicy>
-					</snapshots>
-					<url>http://repo.fusesource.com/nexus/content/repositories/ea/</url>
-					<layout>default</layout>
-				</repository>
-			</repositories>
-			<pluginRepositories>
-			</pluginRepositories>
-		</profile>
-	</profiles>
+    <!-- Environment Settings -->
+    <profiles>
+        <profile>
+            <id>public-repos</id>
+            <repositories>
+                <repository>
+                    <id>central</id>
+                    <name>Maven Central</name>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>always</updatePolicy>
+                        <checksumPolicy>warn</checksumPolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                        <updatePolicy>never</updatePolicy>
+                        <checksumPolicy>fail</checksumPolicy>
+                    </snapshots>
+                    <url>http://repo1.maven.org/maven2/</url>
+                    <layout>default</layout>
+                </repository>
+                <repository>
+                    <id>jboss.org</id>
+                    <name>JBoss org</name>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>always</updatePolicy>
+                        <checksumPolicy>warn</checksumPolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                        <updatePolicy>never</updatePolicy>
+                        <checksumPolicy>fail</checksumPolicy>
+                    </snapshots>
+                    <url>http://repository.jboss.org/nexus/content/repositories/releases/</url>
+                    <layout>default</layout>
+                </repository>
+                <repository>
+                    <id>fusesource.com</id>
+                    <name>Fuse Source</name>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>always</updatePolicy>
+                        <checksumPolicy>warn</checksumPolicy>
+                    </releases>
+                    <snapshots>
+                        <enabled>false</enabled>
+                        <updatePolicy>never</updatePolicy>
+                        <checksumPolicy>fail</checksumPolicy>
+                    </snapshots>
+                    <url>http://repo.fusesource.com/nexus/content/repositories/ea/</url>
+                    <layout>default</layout>
+                </repository>
+            </repositories>
+            <pluginRepositories>
+            </pluginRepositories>
+        </profile>
+    </profiles>
     <dependencies>
         <dependency>
             <groupId>org.wildfly</groupId>
