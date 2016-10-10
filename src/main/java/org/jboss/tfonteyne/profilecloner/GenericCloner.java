@@ -381,6 +381,7 @@ public class GenericCloner implements Cloner {
     }
 
     // for ease of use all loops add commas so cut it off when done
+    // yes, Java 8 has a StringJoiner. But we need to support Java 7 for now.
     private StringBuilder removeComma(StringBuilder cmd) {
         if (cmd.charAt(cmd.length() - 1) == ',') {
             cmd.deleteCharAt(cmd.length() - 1);
