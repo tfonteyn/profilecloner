@@ -1,7 +1,10 @@
 profilecloner
 =============
 ~~~
-JBoss WildFly / JBoss EAP 6.1+ Profile (and more) Cloner - by Tom Fonteyne
+JBoss WildFly / JBoss EAP 6.1+ Profile (and more) Cloner.
+
+Tested with Wildfly 32.
+
 Usage:
  java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
     org.jboss.tfonteyne.profilecloner.Main
