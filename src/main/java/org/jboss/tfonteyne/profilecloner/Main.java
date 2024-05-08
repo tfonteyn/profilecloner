@@ -39,7 +39,7 @@ import org.jboss.as.controller.client.ModelControllerClient;
  */
 public class Main {
 
-    private final static String VERSION = "2016-05-09";
+    private final static String VERSION = "2024-05-08";
 
     private static void usage() {
         System.out.println("JBoss AS 7 / WildFly / JBoss EAP 6  Profile (and more) Cloner - by Tom Fonteyne - version:" + VERSION);
@@ -112,7 +112,7 @@ public class Main {
         Main m = new Main(args);
     }
 
-    public Main(String[] args) {
+    public Main(String[] args) {       
         if (!readOptions(args) || elements.isEmpty()) {
             usage();
             System.exit(0);
@@ -164,20 +164,20 @@ public class Main {
         CommandContext ctx = ctxFactory.newCommandContext();
 
         if (controller==null) {
-            controller = ctx.getDefaultControllerHost();
+            controller = ctx.getDefaultControllerAddress().getHost();
         }
         if (port == 0) {
-            port = ctx.getDefaultControllerPort();
+            port = ctx.getDefaultControllerAddress().getPort();
         }
 
         if (user != null) {
             ctx = ctxFactory.newCommandContext(user, pass.toCharArray());
         }
-        ctx.connectController(controller, port);
+        ctx.connectController("http-remoting://" + controller + ":" + port);
         return ctx;
     }
 
-    private boolean readOptions(String[] args) {
+    private boolean readOptions(String[] args) {       
         int i = 0;
         while (i < args.length && args[i] != null && args[i].startsWith("-")) {
             if (args[i].startsWith("--controller=")) {

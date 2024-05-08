@@ -4,15 +4,21 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.jboss.tfonteyne.profilecloner</groupId>
     <artifactId>profilecloner</artifactId>
-    <version>2016-10-10</version>
+    <version>2024-05-08</version>
     <packaging>jar</packaging>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>1.7</maven.compiler.source>
-        <maven.compiler.target>1.7</maven.compiler.target>
     </properties>
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.8.0</version>
+                <configuration>
+                    <release>11</release>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
@@ -92,6 +98,12 @@
             <artifactId>wildfly-cli</artifactId>
             <version>8.2.1.Final</version>
             <classifier>client</classifier>
+            <exclusions>
+                <exclusion>
+                    <groupId>sun.jdk</groupId>
+                    <artifactId>jconsole</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>
