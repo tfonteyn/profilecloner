@@ -1,7 +1,7 @@
-echo "Using:"
-echo "JAVA_HOME=$env:JAVA_HOME"
-echo "JBOSS_HOME=$env:JBOSS_HOME"
-echo "Starting profilecloner"
+Write-Host "Using:"
+Write-Host "JAVA_HOME=$env:JAVA_HOME"
+Write-Host "JBOSS_HOME=$env:JBOSS_HOME"
+Write-Host "Starting profilecloner"
 
 $CLASSPATH = "$env:JBOSS_HOME\bin\client\jboss-cli-client.jar;./profilecloner.jar"
 
