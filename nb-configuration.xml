@@ -13,6 +13,26 @@ You can copy and paste the single properties, into the pom.xml file and the IDE 
 That way multiple projects can share the same settings (useful for formatting rules for example).
 Any value defined here will override the pom.xml file value but is only applicable to the current project.
 -->
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocExceptionDescriptions>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocExceptionDescriptions>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocParameterDescriptions>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocParameterDescriptions>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocReturnDescription>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignJavadocReturnDescription>
+        
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineAnnotationArgs>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineAnnotationArgs>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineCallArgs>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineCallArgs>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineImplements>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineImplements>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineMethodParams>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineMethodParams>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineThrows>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.alignMultilineThrows>
+        
+<!--        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.blankLineAfterJavadocParameterDescriptions>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.blankLineAfterJavadocParameterDescriptions>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.blankLineAfterJavadocReturnTag>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.blankLineAfterJavadocReturnTag>-->
+        <!--<org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.preserveNewLinesInComments>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.preserveNewLinesInComments>-->
+  
+<!--        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.enable-indent>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.enable-indent>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.generateParagraphTagOnBlankLines>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.generateParagraphTagOnBlankLines>-->
+        
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.wrapMethodParams>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.wrapMethodParams>
+        <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.wrapThrowsKeyword>true</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.wrapThrowsKeyword>
+
         <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.text-line-wrap>none</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.text-line-wrap>
         <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.continuationIndentSize>4</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.continuationIndentSize>
         <org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.indent-shift-width>4</org-netbeans-modules-editor-indent.text.x-java.CodeStyle.project.indent-shift-width>

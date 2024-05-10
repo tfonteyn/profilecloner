@@ -16,12 +16,21 @@
  */
 package org.jboss.tfonteyne.profilecloner;
 
-import java.io.IOException;
-import java.util.List;
-import org.jboss.as.cli.CommandLineException;
+/**
+ * Used to keep a list of the elements to be cloned
+ */
+public class Element {
+    final String source;
+    final String destination;
 
-public interface Cloner {
-    List<String> copy() 
-        throws IOException, 
-               CommandLineException;
+    public Element(final String source) {
+        this.source = source;
+        this.destination = null;
+    }
+
+    public Element(final String from, 
+                   final String destination) {
+        this.source = from;
+        this.destination = destination;
+    }
 }

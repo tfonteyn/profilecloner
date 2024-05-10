@@ -20,30 +20,27 @@ import java.util.Stack;
 import org.jboss.as.controller.client.helpers.ClientConstants;
 import org.jboss.dmr.ModelNode;
 
-/**
- *
- * @author Tom Fonteyne
- */
 public class AddressStack {
 
     private final Stack<Address> adresses = new Stack<>();
 
-    public AddressStack(String root, String source) {
+    public AddressStack(final String root,
+                        final String source) {
         adresses.push(new Address(root, source));
     }
 
-    public AddressStack(String source) {
-        String[] nvPairs = source.split("/");
-        for (int i=1; i<nvPairs.length; i++) {
+    public AddressStack(final String source) {
+        final String[] nvPairs = source.split("/");
+        for (int i = 1; i < nvPairs.length; i++) {
             adresses.push(new Address(nvPairs[i]));
         }
     }
 
-    public void push(Address address) {
+    public void push(final Address address) {
         adresses.push(address);
     }
 
-    public void push(String nvString) {
+    public void push(final String nvString) {
         adresses.push(new Address(nvString));
     }
 
@@ -57,14 +54,14 @@ public class AddressStack {
     }
 
     public StringBuilder toStringBuilder() {
-        StringBuilder adressString = new StringBuilder();
+        final StringBuilder adressString = new StringBuilder();
         for (Address address : adresses) {
             adressString.append(address.toString());
         }
         return adressString;
     }
 
-    public void setAddress(ModelNode node) {
+    public void setAddress(final ModelNode node) {
         for (Address address : adresses) {
             node.get(ClientConstants.OP_ADDR).add(address.name, address.value);
         }

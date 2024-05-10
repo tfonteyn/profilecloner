@@ -1,9 +1,4 @@
 /*
- * JBoss, Home of Professional Open Source.
- * Copyright 2014, Red Hat, Inc., and individual contributors
- * as indicated by the @author tags. See the copyright.txt file in the
- * distribution for a full listing of individual contributors.
- *
  * This is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
  * published by the Free Software Foundation; either version 2.1 of
@@ -22,8 +17,11 @@
 package org.jboss.tfonteyne.profilecloner;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 import org.jboss.as.cli.CommandLineException;
 import org.jboss.as.controller.client.ModelControllerClient;
 import org.jboss.as.controller.client.helpers.ClientConstants;
@@ -31,22 +29,11 @@ import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.ModelType;
 
 /**
- * Clones any "/name=value" root whether in standalone or in domain and delivers the CLI statement as a batch
- *
- * @author Tom Fonteyne
+ * Clones any "/name=value" root whether in standalone or in domain 
+ * and delivers the CLI statement as a batch.
  */
 public class GenericCloner implements Cloner {
 
-    protected ModelControllerClient client = null;
-    protected String elementName = null;
-    protected String destinationName = null;
-
-    protected AddressStack destinationAddress = null;
-    protected AddressStack sourceAddress = null;
-
-    protected boolean addDeployments;
-
-    private int managementMajorVersion = 0;
     private static final String VERSION_MAJOR = "management-major-version";
     private static final String VERSION_MICRO = "management-micro-version";
     private static final String VERSION_MINOR = "management-minor-version";
@@ -56,24 +43,43 @@ public class GenericCloner implements Cloner {
     private static final int WILDFLY8 = 2;
     private static final int WILDFLY9 = 3;
     private static final int WILDFLY10 = 4; // == EAP 7
+    
+    private static final String FAILED = "failed";
+
+    private final ModelControllerClient client;
+    private final String elementName;
+    private final String destinationName;
+
+    private final AddressStack destinationAddress;
+    private final AddressStack sourceAddress;
+
+    private final boolean addDeployments;
+
+    private int managementMajorVersion = 0;
 
     /**
      *
      * @param client
-     * @param source a CLI style address, example: "/profile=default" or "/host=master/core-service=management"
-     * @param destinationName the new name of the last part of the source address, example "new-default" or "management" (e.g. use same name)
+     * @param source          a CLI style address, 
+     *                        example: "/profile=default" or "/host=master/core-service=management"
+     * @param destinationName the new name of the last part of the source address, 
+     *                        example "new-default" or "management" (e.g. use same name)
      * @param addDeployments
      * @throws IOException
      * @throws CommandLineException
      */
-    public GenericCloner(ModelControllerClient client, String source, String destinationName, boolean addDeployments)
-        throws IOException, CommandLineException {
+    public GenericCloner(final ModelControllerClient client,
+                         final String source,
+                         final String destinationName,
+                         final boolean addDeployments)
+        throws IOException,
+               CommandLineException {
         this.client = client;
         this.destinationName = destinationName;
         this.addDeployments = addDeployments;
 
-        int pos = source.lastIndexOf("/");
-        this.elementName = source.substring(pos+1,source.length()-1).split("=")[0];
+        final int pos = source.lastIndexOf("/");
+        this.elementName = source.substring(pos + 1, source.length() - 1).split("=")[0];
 
         sourceAddress = new AddressStack(source);
         destinationAddress = new AddressStack(source.substring(0, pos) + "/" + elementName + "=" + destinationName);
@@ -82,67 +88,68 @@ public class GenericCloner implements Cloner {
     }
 
     @Override
-    public List<String> copy() throws IOException, CommandLineException {
-        List<String> commands = new LinkedList<>();
+    public List<String> copy() 
+        throws IOException,
+               CommandLineException {
+        final List<String> commands = new LinkedList<>();
         commands.add("batch");
-        commands.addAll(getChildResource(elementName, getSource(sourceAddress)));
+        commands.addAll(processChildResource(elementName, getSource(sourceAddress)));
         commands.add("run-batch");
         return commands;
     }
 
-
-    private int getManagementVersion(ModelControllerClient client, String version) throws IOException {
-        ModelNode node = new ModelNode();
+    private int getManagementVersion(final ModelControllerClient client,
+                                     final String version)
+        throws IOException {
+        final ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_ATTRIBUTE_OPERATION);
-        node.get("name").set(version);
-        ModelNode result = client.execute(node);
-        if ("failed".equals(result.get(ClientConstants.OUTCOME).asString())) {
+        node.get(ClientConstants.NAME).set(version);
+        final ModelNode result = client.execute(node);
+        if (FAILED.equals(result.get(ClientConstants.OUTCOME).asString())) {
             throw new java.lang.RuntimeException(result.asString());
         }
         return result.get(ClientConstants.RESULT).asInt();
     }
 
-    protected ModelNode getSource(AddressStack source)
-        throws IOException, CommandLineException {
-        ModelNode node = new ModelNode();
+    private ModelNode getSource(final AddressStack source)
+        throws IOException, 
+               CommandLineException {
+        final ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
         source.setAddress(node);
-        node.get("recursive").set(true);
+        node.get(ClientConstants.RECURSIVE).set(true);
         node.get("include-defaults").set(false);
 
-        ModelNode result = client.execute(node);
-        if ("failed".equals(result.get("outcome").asString())) {
+        final ModelNode result = client.execute(node);
+        if (FAILED.equals(result.get(ClientConstants.OUTCOME).asString())) {
             throw new java.lang.RuntimeException(result.asString());
         }
-        return result.get("result");
+        return result.get(ClientConstants.RESULT);
     }
 
     /**
-     * Gets called recursively
-     * Note the special handling of certain nodes due to inconsistencies
+     * Called recursively. Note the special handling of certain nodes due to inconsistencies.
      *
      * @param elementName
      * @param source
-     * @return
+     *
+     * @return list of commands for the child resource
      */
-    protected List<String> getChildResource(String elementName, ModelNode source) {
-        List<String> commands = new LinkedList<>();
-        StringBuilder attributes;
-        String addressString;
-
+    private List<String> processChildResource(final String elementName,
+                                              final ModelNode source) {
+        final List<String> commands = new LinkedList<>();
         if (isProperty(source)) {
-            String addressName = source.asProperty().getName();
-            destinationAddress.push(new Address(elementName, addressName));
-            addressString = destinationAddress.toString();
-            attributes = handleProperty(source.asProperty().getValue(), commands);
+            destinationAddress.push(new Address(elementName, source.asProperty().getName()));
+
+            final String addressString = destinationAddress.toString();
+            List<String> attributes = processProperty(source.asProperty().getValue(), commands);
 
             if (managementMajorVersion < WILDFLY9) {
                 // pre WildFly 9 required special handling of the JGroups protocols which were set
                 // using "add-protocol" instead of the normal "add"
                 if ((addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*"))
                     // but do not do this for child resources
-                    && (!addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*/.*=.*"))
-                    ) {
+                    && (!addressString.matches(".*/subsystem=\"jgroups\"/stack=.*/protocol=.*/.*=.*"))) {
                     destinationAddress.pop();
                     commands.add(0, buildAdd("add-protocol", attributes));
                     return commands;
@@ -161,131 +168,140 @@ public class GenericCloner implements Cloner {
                 return commands;
             }
 
-            // JGroups has protocols as read-only, but I found no way to avoid fetching this.
-            if (addressString.matches(".*/subsystem=\"jgroups\"/stack=.*")
-                && attributes.toString().contains("protocols=[")) {
-                attributes = new StringBuilder(attributes.toString().replaceAll("protocols=\\[.*\\],", ""));
+            // JGroups has "protocols" as read-only, but we get it back anyhow -> remove
+            if (addressString.matches(".*/subsystem=\"jgroups\"/stack=.*")) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("protocols=["))
+                    .collect(Collectors.toList());
             }
 
-            // deprecated but still present -> remove the attribute before adding
-            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")
-                && (attributes.toString().contains("login-modules=[")
-                || attributes.toString().contains("policy-modules=[")
-                || attributes.toString().contains("provider-modules=[")
-                || attributes.toString().contains("trust-modules=[")
-                || attributes.toString().contains("mapping-modules=["))) {
-                attributes = new StringBuilder(attributes.toString()
-                    .replaceAll("login-modules=\\[.*\\],", "")
-                    .replaceAll("policy-modules=\\[.*\\],", "")
-                    .replaceAll("provider-modules=\\[.*\\],", "")
-                    .replaceAll("trust-modules=\\[.*\\],", "")
-                    .replaceAll("mapping-modules=\\[.*\\],", "")
-                );
+            // deprecated attributes -> remove
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"classic\"")) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("login-modules=["))
+                    .filter(a -> !a.startsWith("policy-modules=["))
+                    .filter(a -> !a.startsWith("provider-modules=["))
+                    .filter(a -> !a.startsWith("trust-modules=["))
+                    .filter(a -> !a.startsWith("mapping-modules=["))
+                    .collect(Collectors.toList());
             }
 
-            // JASPI has 2 similar issues as "classic"
-            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"")
-                && (attributes.toString().contains("auth-modules=["))) {
-                attributes = new StringBuilder(attributes.toString()
-                    .replaceAll("auth-modules=\\[.*\\],", "")
-                );
+            // deprecated attributes -> remove
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"")) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("auth-modules=["))
+                    .collect(Collectors.toList());
             }
 
-            // JASPI has 2 similar issues as "classic"
-            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"/login-module-stack=.*")
-                && (attributes.toString().contains("login-modules=["))) {
-                attributes = new StringBuilder(attributes.toString()
-                    .replaceAll("login-modules=\\[.*\\],", "")
-                );
+            // deprecated attributes -> remove
+            if (addressString.matches(".*/subsystem=\"security\"/security-domain=.*/.*=\"jaspi\"/login-module-stack=.*")) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("login-modules=["))
+                    .collect(Collectors.toList());
+            }
+
+            // These have "name" as read-only, but we get it back anyhow -> remove
+            if (addressString.matches(".*/subsystem=\"logging\"/.*file-handler=.*")
+                || addressString.matches(".*/subsystem=\"batch-jberet\"/thread-pool=.*")
+                || addressString.matches(".*/subsystem=\"jca\"/.*running-threads=.*")
+                || addressString.matches(".*/subsystem=\"ejb3\"/thread-pool=.*")) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("name="))
+                    .collect(Collectors.toList());
+            }
+
+            // The batch failed with the following error (you are remaining in the batch editing mode to have a chance to co
+            // rrect the error): {"WFLYCTL0062: Composite operation failed and was rolled back. Steps that failed:" => {"Operation step
+            // -270" => "WFLYCTL0446: jacc-policy or alternative(s) [custom-policy] is required"}}
+            // /profile="ha-copy"/subsystem="singleton":add(default="default")
+            // /profile="ha-copy"/subsystem="singleton"/singleton-policy="default":add(cache-container="server")
+            // /profile="ha-copy"/subsystem="singleton"/singleton-policy="default"/election-policy="simple":add()
+            
+            commands.add(0, buildAdd("add", attributes));
+            destinationAddress.pop();
+
+        } else {
+            final String addressString = destinationAddress.toString();
+            List<String> attributes = processProperty(source, commands);
+
+            // profile has "name" as read-only, but we get it back anyhow -> remove
+            if ((addressString.equals("/profile=\"" + destinationName + "\""))) {
+                attributes = attributes.stream()
+                    .filter(a -> !a.startsWith("name="))
+                    .collect(Collectors.toList());
             }
 
             commands.add(0, buildAdd("add", attributes));
-            destinationAddress.pop();
-        } else {
-            addressString = destinationAddress.toString();
-            attributes = handleProperty(source, commands);
-
-            // the profile comes back with a "name" attribute which is not allowed in "add"
-            if ((addressString.equals("/profile=\"" + destinationName + "\""))) {
-                attributes = new StringBuilder(attributes.toString().replaceAll("name=.*,", ""));
-            }
-
-            commands.add(0,buildAdd("add", attributes));
         }
         return commands;
-     }
+    }
 
-    protected String buildAdd(String command, StringBuilder attributes) {
-        StringBuilder cmd = destinationAddress.toStringBuilder().append(":").append(command).append("(").append(attributes);
-        return removeComma(cmd).append(")").toString();
+    private String buildAdd(final String command,
+                            final List<String> attributes) {
+        return destinationAddress.toStringBuilder()
+            .append(":").append(command)
+            .append(attributes.stream().collect(Collectors.joining(",", "(", ")")))
+            .toString();
     }
 
     /**
-     * The bulk of the work is done in here - it will recursively call getChildResource
-     *
+     * The bulk of the work is done in here - it will recursively call processChildResource.
+     * <p>
      * There are potentially to many checks on undefined, but heck.. lets be safe
      *
      * @param root
      * @param commands
+     *
      * @return a list of attributes: name1="val1",name2="val2",...
      */
-    protected StringBuilder handleProperty(ModelNode root, List<String> commands) {
+    private List<String> processProperty(final ModelNode root,
+                                         final List<String> commands) {
         // the attributes for the add() command
-        StringBuilder attributes = new StringBuilder();
+        final List<String> attributes = new ArrayList<>();
 
-        List<ModelNode> children = root.asList();
-        for (ModelNode child : children) {
+        for (ModelNode child : root.asList()) {
             // theoretically we can only have properties at this level
             if (isProperty(child)) {
-                String valueName = child.asProperty().getName();
-                ModelNode value = child.asProperty().getValue();
+                final String valueName = child.asProperty().getName();
+                final ModelNode value = child.asProperty().getValue();
 
                 if (isUndefined(value)) {
                     continue;
                 }
 
-                if (isList(value)) {
-                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
-                } else if (isPrimitive(value)) {
-                    attributes.append(valueName).append("=").append(getNode(value)).append(",");
+                if (isList(value) || isPrimitive(value)) {
+                    attributes.add(valueName + "=" + nodeToString(value));
+
                 } else if (isProperty(value) || isObject(value)) {
-                    boolean objectStarted = false;
+                    final StringJoiner objectAtrrs = new StringJoiner(",", "{", "}").setEmptyValue("");
 
                     for (ModelNode node : value.asList()) {
-                        if (isUndefined(value)) {
-                            continue;
-                        }
-
-                        String name = node.asProperty().getName();
-                        ModelNode nodeValue = node.asProperty().getValue();
+                        final String name = node.asProperty().getName();
+                        final ModelNode nodeValue = node.asProperty().getValue();
 
                         if (isUndefined(nodeValue) || isPrimitive(nodeValue)) {
                             if (isObject(value)) {
-                                if (!objectStarted) {
-                                    attributes.append(valueName).append("={");
-                                    objectStarted = true;
-                                }
-                                attributes.append("\"").append(name).append("\"").append(" => ").append(getNode(nodeValue)).append(",");
+                                objectAtrrs.add("\"" + name + "\" => " + nodeToString(nodeValue));
                             } else {
-                                attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
+                                objectAtrrs.add(name + "=" + nodeToString(nodeValue));
                             }
                         } else if (isList(nodeValue)) {
-                            attributes.append(name).append("=").append(getNode(nodeValue)).append(",");
+                            objectAtrrs.add(name + "=" + nodeToString(nodeValue));
                         } else if (isProperty(nodeValue) || isObject(nodeValue)) {
-                            // and go a level deeper
-                            commands.addAll(getChildResource(valueName, node));
+                            // decend into prop/obj
+                            commands.addAll(processChildResource(valueName, node));
                         } else {
                             throw new IllegalArgumentException("Unexpected node type" + value.getType());
                         }
                     }
-                    if (objectStarted) {
-                        attributes = removeComma(attributes).append("},");
+                    if (objectAtrrs.length() > 0) {
+                        attributes.add(valueName + "=" + objectAtrrs.toString());
                     }
                 } else {
                     throw new IllegalArgumentException("Unexpected node type" + value.getType());
                 }
             } else {
-                throw new IllegalArgumentException("Expected property, but got " + child.getType());
+                throw new IllegalArgumentException("Expected a property, but got " + child.getType());
             }
         }
         return attributes;
@@ -293,38 +309,37 @@ public class GenericCloner implements Cloner {
 
     /**
      * @param nodes
+     *
      * @return the value for a list: ["val1","val2",...]
      */
-    protected String getList(ModelNode nodes) {
-        StringBuilder cmd = new StringBuilder("[");
-        for (ModelNode node : nodes.asList()) {
-            if (!isUndefined(node)) {
-                cmd.append(getNode(node)).append(",");
-            }
-        }
-        return removeComma(cmd).append("]").toString();
+    private String getList(final ModelNode nodes) {
+        return nodes.asList()
+            .stream()
+            .filter(node -> !isUndefined(node))
+            .map(this::nodeToString)
+            .collect(Collectors.joining(",", "[", "]"));
     }
 
     /**
      * @param nodes
+     *
      * @return the value for an object: { "name1" => "val1", "name2 => "val2", ...}
      */
-    protected String getObject(ModelNode nodes) {
-        StringBuilder cmd = new StringBuilder("{");
-        for (String name : nodes.keys()) {
-            ModelNode node = nodes.get(name);
-            cmd.append(name).append("=").append(getNode(node)).append(",");
-        }
-        return removeComma(cmd).append("}").toString();
+    private String getObject(final ModelNode nodes) {
+        return nodes.keys()
+            .stream()
+            .map(key -> key + "=" + nodeToString(nodes.get(key)))
+            .collect(Collectors.joining(",", "{", "}"));
     }
 
     /**
-     * used recursively for the supported types
+     * Convert a node to its String representation.
      *
      * @param node
+     *
      * @return
      */
-    protected String getNode(ModelNode node) {
+    private String nodeToString(final ModelNode node) {
         if (isUndefined(node)) {
             return "undefined";
         } else if (isPrimitive(node)) {
@@ -338,24 +353,24 @@ public class GenericCloner implements Cloner {
         }
     }
 
-    protected static boolean isProperty(ModelNode node) {
+    private static boolean isProperty(final ModelNode node) {
         return node.getType() == ModelType.PROPERTY;
     }
 
-    protected static boolean isObject(ModelNode node) {
+    private static boolean isObject(final ModelNode node) {
         return node.getType() == ModelType.OBJECT;
     }
 
-    protected static boolean isList(ModelNode node) {
+    private static boolean isList(final ModelNode node) {
         return node.getType() == ModelType.LIST;
     }
 
-    protected static boolean isUndefined(ModelNode node) {
+    private static boolean isUndefined(final ModelNode node) {
         return node.getType() == ModelType.UNDEFINED;
     }
 
-    protected static boolean isPrimitive(ModelNode node) {
-        ModelType type = node.getType();
+    private static boolean isPrimitive(final ModelNode node) {
+        final ModelType type = node.getType();
         return type == ModelType.BIG_DECIMAL
             || type == ModelType.BIG_INTEGER
             || type == ModelType.BOOLEAN
@@ -371,21 +386,11 @@ public class GenericCloner implements Cloner {
     /**
      * escape the value part of a name=value (not of an Address)
      *
-     * TODO: any more character needed ?
-     *
      * @param value
+     *
      * @return
      */
-    private String escape(ModelNode value) {
+    private String escape(final ModelNode value) {
         return "\"" + value.asString().replace("=", "\\=").replace("\"", "\\\"") + "\"";
-    }
-
-    // for ease of use all loops add commas so cut it off when done
-    // yes, Java 8 has a StringJoiner. But we need to support Java 7 for now.
-    private StringBuilder removeComma(StringBuilder cmd) {
-        if (cmd.charAt(cmd.length() - 1) == ',') {
-            cmd.deleteCharAt(cmd.length() - 1);
-        }
-        return cmd;
     }
 }

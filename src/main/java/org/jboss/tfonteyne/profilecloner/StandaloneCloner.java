@@ -26,45 +26,48 @@ import org.jboss.dmr.ModelNode;
 
 /**
  * As there is no actual "profile" root in standalone, we must walk the list of subsystems instead.
- * Each subsystem is set within batch/run-batch as the user will likely only want copy/paste some of them
- * This is still easier then cloning one subsystem at a time
+ * Each subsystem is set within batch/run-batch as the user will likely only want copy/paste some of them.
+ * This is still easier then cloning one subsystem at a time.
  *
- * TODO: it seems that creating all subsystems in one single batch fails with dependency issues
- *       for now, each subsystem gets its own batch. Interdependencies will require re-ordering before adding.
- *
- * @author Tom Fonteyne
+ * TODO: it seems that creating all subsystems in one single batch fails due to dependency issues.
+ *       For now, each subsystem gets its own batch. 
+ *       Interdependencies will require re-ordering before adding.
  */
 public class StandaloneCloner implements Cloner {
 
-    protected final ModelControllerClient client;
+    private static final String FAILED = "failed";
 
-    public StandaloneCloner(ModelControllerClient client) {
+    private final ModelControllerClient client;
+
+    public StandaloneCloner(final ModelControllerClient client) {
         this.client = client;
     }
 
     @Override
-    public List<String> copy() throws IOException, CommandLineException {
-        Cloner cloner;
-        List<String> commands = new LinkedList<>();
-        List<ModelNode> subsystems = getSubsystems();
-        for (ModelNode subsystem : subsystems)
-        {
-            String name = subsystem.asProperty().getName();
-            cloner = new GenericCloner(client, "/subsystem=" + name, name, false);
+    public List<String> copy()
+        throws IOException, 
+               CommandLineException {
+        final List<String> commands = new LinkedList<>();
+        final List<ModelNode> subsystems = getSubsystems();
+        for (ModelNode subsystem : subsystems) {
+            final String name = subsystem.asProperty().getName();
+            final Cloner cloner = new GenericCloner(client, "/subsystem=" + name, name, false);
             commands.addAll(cloner.copy());
         }
         return commands;
     }
 
-    private List<ModelNode> getSubsystems() throws IOException, CommandLineException {
-        ModelNode node = new ModelNode();
+    private List<ModelNode> getSubsystems() 
+        throws IOException, 
+               CommandLineException {
+        final ModelNode node = new ModelNode();
         node.get(ClientConstants.OP).set(ClientConstants.READ_RESOURCE_OPERATION);
-        node.get("recursive").set(false);
+        node.get(ClientConstants.RECURSIVE).set(false);
 
-        ModelNode result = client.execute(node);
-        if ("failed".equals(result.get("outcome").asString())) {
+        final ModelNode result = client.execute(node);
+        if (FAILED.equals(result.get(ClientConstants.OUTCOME).asString())) {
             throw new java.lang.RuntimeException(result.asString());
         }
-        return result.get("result").get("subsystem").asList();
+        return result.get(ClientConstants.RESULT).get("subsystem").asList();
     }
 }

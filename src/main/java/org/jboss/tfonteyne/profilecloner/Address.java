@@ -16,32 +16,27 @@
  */
 package org.jboss.tfonteyne.profilecloner;
 
-/**
- *
- * @author Tom Fonteyne
- */
 public class Address {
 
-    public Address(String name, String value) {
+    final String name;
+    final String value;
+    
+    public Address(final String name, 
+                   final String value) {
         this.name = name;
         this.value = value;
     }
 
-    public Address(String pair) {
-        String[] nv = pair.split("=");
-        try
-        {
+    public Address(final String pair) {
+        final String[] nv = pair.split("=");
+        try {
             this.name = nv[0];
             this.value = nv[1];
         }
-        catch (ArrayIndexOutOfBoundsException oob)
-        {
+        catch (ArrayIndexOutOfBoundsException oob) {
             throw new ArrayIndexOutOfBoundsException("Invalid address pair: " + pair);
         }
     }
-
-    String name;
-    String value;
 
     @Override
     public String toString() {
