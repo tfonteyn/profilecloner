@@ -349,7 +349,8 @@ public class GenericCloner implements Cloner {
         } else if (isList(node)) {
             return getList(node);
         } else {
-            throw new IllegalArgumentException("Unknown type: " + node.getType());
+            throw new IllegalArgumentException("Unknown type: " + node.getType()
+                                                       + ", " + node.toJSONString(false));
         }
     }
 
