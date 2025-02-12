@@ -1,2 +1,4 @@
 /profilecloner/target/
 /target/
+/build/
+.gradle/
