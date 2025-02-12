@@ -3,7 +3,10 @@ profilecloner
 ~~~
 JBoss WildFly / JBoss EAP 6.1+ Profile (and more) Cloner.
 
-Tested with Wildfly 32.
+Building:  it's 2025, no more maven xml-hell!
+Use: "gradlew assemble" and the jar will be in "build/libs"
+
+Tested with Wildfly 35.
 
 Usage:
  java -cp $JBOSS_HOME/bin/client/jboss-cli-client.jar:profilecloner.jar
