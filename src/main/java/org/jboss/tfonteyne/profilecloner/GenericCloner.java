@@ -270,7 +270,7 @@ public class GenericCloner implements Cloner {
                 }
 
                 if (isList(value) || isPrimitive(value)) {
-                    attributes.add(valueName + "=" + nodeToString(value));
+                    attributes.add(valueName + "=" + nodeToString(value, commands));
 
                 } else if (isProperty(value) || isObject(value)) {
                     final StringJoiner objectAtrrs = new StringJoiner(",", "{", "}").setEmptyValue("");
@@ -281,12 +281,12 @@ public class GenericCloner implements Cloner {
 
                         if (isUndefined(nodeValue) || isPrimitive(nodeValue)) {
                             if (isObject(value)) {
-                                objectAtrrs.add("\"" + name + "\" => " + nodeToString(nodeValue));
+                                objectAtrrs.add("\"" + name + "\" => " + nodeToString(nodeValue, commands));
                             } else {
-                                objectAtrrs.add(name + "=" + nodeToString(nodeValue));
+                                objectAtrrs.add(name + "=" + nodeToString(nodeValue, commands));
                             }
                         } else if (isList(nodeValue)) {
-                            objectAtrrs.add(name + "=" + nodeToString(nodeValue));
+                            objectAtrrs.add(name + "=" + nodeToString(nodeValue, commands));
                         } else if (isProperty(nodeValue) || isObject(nodeValue)) {
                             // decend into prop/obj
                             commands.addAll(processChildResource(valueName, node));
@@ -309,26 +309,33 @@ public class GenericCloner implements Cloner {
 
     /**
      * @param nodes
-     *
+     * @param commands
      * @return the value for a list: ["val1","val2",...]
      */
-    private String getList(final ModelNode nodes) {
-        return nodes.asList()
-            .stream()
-            .filter(node -> !isUndefined(node))
-            .map(this::nodeToString)
-            .collect(Collectors.joining(",", "[", "]"));
+    private String getList(final ModelNode nodes,
+                           List<String> commands) {
+        StringJoiner joiner = new StringJoiner(",", "[", "]");
+        for (ModelNode node : nodes.asList()) {
+            if (isProperty(node)) {
+                processProperty(node, commands);
+            } else if (!isUndefined(node)) {
+                String s = nodeToString(node, commands);
+                joiner.add(s);
+            }
+        }
+        return joiner.toString();
     }
 
     /**
      * @param nodes
-     *
+     * @param commands
      * @return the value for an object: { "name1" => "val1", "name2 => "val2", ...}
      */
-    private String getObject(final ModelNode nodes) {
+    private String getObject(final ModelNode nodes,
+                             List<String> commands) {
         return nodes.keys()
             .stream()
-            .map(key -> key + "=" + nodeToString(nodes.get(key)))
+            .map(key -> key + "=" + nodeToString(nodes.get(key), commands))
             .collect(Collectors.joining(",", "{", "}"));
     }
 
@@ -336,18 +343,19 @@ public class GenericCloner implements Cloner {
      * Convert a node to its String representation.
      *
      * @param node
-     *
+     * @param commands
      * @return
      */
-    private String nodeToString(final ModelNode node) {
+    private String nodeToString(final ModelNode node,
+                                final List<String> commands) {
         if (isUndefined(node)) {
             return "undefined";
         } else if (isPrimitive(node)) {
             return escape(node);
         } else if (isObject(node)) {
-            return getObject(node);
+            return getObject(node, commands);
         } else if (isList(node)) {
-            return getList(node);
+            return getList(node, commands);
         } else {
             throw new IllegalArgumentException("Unknown type: " + node.getType()
                                                        + ", " + node.toJSONString(false));

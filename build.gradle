@@ -11,7 +11,7 @@ dependencies {
 }
 
 group = 'org.jboss.tfonteyne.profilecloner'
-version = '2025-02-12'
+version = '2025-02-13'
 description = 'profilecloner'
 java.sourceCompatibility = JavaVersion.VERSION_17
 
