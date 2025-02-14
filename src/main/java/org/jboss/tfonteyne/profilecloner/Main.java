@@ -194,17 +194,20 @@ public class Main {
         try {
            while (i < args.length && args[i] != null) {
                 if (args.length - i == 1) {
+                    // one single option, check for the standalone key "profile"
                     if ("profile".equals(args[i])) {
                         // standalone mode -> copy all subsystems
                         elements.add(new Element("profile"));
                         i++;
                     } else {
-                        // domain mode -> profile with the same destination name
+                        // domain mode -> use the same destination name as the source
                         final String source = args[i++];
-                        elements.add(new Element("profile", source));
+                        final int pos = source.lastIndexOf("/");
+                        final String destination = source.substring(pos + 1).split("=")[1];
+                        elements.add(new Element(source, destination));
                     }
                 } else if (args.length - i == 2) {
-                    // two options -> CLI address as source, simple name as destination
+                    // (multiple sets of) two options -> CLI address as source, simple name as destination
                     final String source = args[i++];
                     final String destination = args[i++];
                     elements.add(new Element(source, destination));
